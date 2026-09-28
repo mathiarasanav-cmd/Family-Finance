@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Finance">
+<meta name="theme-color" content="#2a78d6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+
+<title>Family Finance Tracker</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f3f0; --surface: #fcfcfb; --surface-2: #f0efec; --border: #e2e0da;
+  --text: #0b0b0b; --text-2: #52514e; --muted: #7a7873;
+  --accent: #2a78d6; --accent-ink: #ffffff;
+  --s-income: #2a78d6; --s-spend: #eb6834; --s-emi: #1baf7a;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --grid: #e7e5df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110; --surface: #1a1a19; --surface-2: #242422; --border: #333330;
+    --text: #ffffff; --text-2: #c3c2b7; --muted: #8e8d86;
+    --accent: #3987e5; --accent-ink: #ffffff;
+    --s-income: #3987e5; --s-spend: #d95926; --s-emi: #199e70; --grid: #2c2c2a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Tamil", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Header */
+header { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border); }
+.hbar { max-width: 1100px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { font-weight: 700; font-size: 16px; margin-right: auto; }
+.monthnav { display: flex; align-items: center; gap: 4px; }
+.monthnav .lbl { min-width: 132px; text-align: center; font-weight: 600; }
+.monthnav input[type=month] { position: absolute; opacity: 0; pointer-events: none; width: 0; }
+.iconbtn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; }
+.iconbtn:hover { background: var(--surface-2); }
+.pill { font-size: 12px; color: var(--muted); }
+nav.tabs { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; gap: 2px; overflow-x: auto; }
+nav.tabs button { border: 0; background: none; padding: 10px 12px; cursor: pointer; color: var(--text-2); border-bottom: 2px solid transparent; white-space: nowrap; }
+nav.tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 96px; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.grid { display: grid; gap: 14px; }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.g2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 520px) { input.cell { width: 80px; } }
+@media (max-width: 820px) { .g4 { grid-template-columns: 1fr 1fr; } .g2 { grid-template-columns: 1fr; } }
+
+.kpi .k { color: var(--text-2); font-size: 12px; }
+.kpi .v { font-size: 22px; font-weight: 700; margin-top: 2px; }
+.kpi .s { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { font-size: 12px; color: var(--text-2); font-weight: 600; }
+td.r, th.r { text-align: right; }
+tr.total td { font-weight: 700; border-bottom: 0; }
+tr.dim td { color: var(--muted); }
+.scroll { overflow-x: auto; }
+
+.status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.st-good { color: var(--good); } .st-warn { color: #b57e00; } .st-crit { color: var(--critical); } .st-muted { color: var(--muted); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .st-warn { color: var(--warning); } }
+
+.bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.bar > i.over { background: var(--critical); }
+.bar > i.hi { background: var(--critical); }
+.hidden { display: none !important; }
+.preview { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; margin-top: 12px; font-size: 13px; }
+.due-soon td:first-child { border-left: 3px solid var(--critical); }
+.hide-sm {} @media (max-width: 560px) { .hide-sm { display: none; } }
+:root { --bar: #2a78d6; }
+
+.btn { border: 1px solid var(--border); background: var(--surface); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--critical); }
+.btn.sm { padding: 3px 8px; font-size: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+input.in, select.in { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+input.in.amt { width: 110px; text-align: right; }
+input.cell { width: 100px; text-align: right; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 4px 6px; }
+input.cell:hover, input.cell:focus { border-color: var(--border); background: var(--surface); }
+.chk { width: 18px; height: 18px; accent-color: var(--good); cursor: pointer; }
+.note { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); padding: 12px 0; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; background: var(--surface); }
+.chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+.fab { position: fixed; right: 18px; bottom: 18px; z-index: 30; border: 0; border-radius: 28px; padding: 14px 20px; background: var(--accent); color: var(--accent-ink); font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.2); cursor: pointer; }
+
+/* Modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+@media (min-width: 640px) { .modal-bg { align-items: center; } }
+.modal { background: var(--surface); width: 100%; max-width: 440px; border-radius: 14px 14px 0 0; padding: 18px; max-height: 90vh; overflow: auto; }
+@media (min-width: 640px) { .modal { border-radius: 14px; } }
+.modal label { display: block; font-size: 12px; color: var(--text-2); margin: 10px 0 4px; }
+.modal .in { width: 100%; }
+.modal .actions { display: flex; gap: 8px; margin-top: 16px; }
+
+.toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; z-index: 60; font-size: 13px; }
+.saving { font-size: 12px; color: var(--muted); }
+
+/* Charts */
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--text-2); font-size: 11px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.12); white-space: nowrap; z-index: 5; }
+.tip b { display: block; margin-bottom: 2px; }
+.tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.loading { text-align: center; padding: 60px 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <div class="brand">Family Finance</div>
+    <div class="monthnav">
+      <button class="iconbtn" id="prevM" aria-label="Previous month">‹</button>
+      <button class="btn lbl" id="mLabel"></button>
+      <input type="month" id="mPick">
+      <button class="iconbtn" id="nextM" aria-label="Next month">›</button>
+      <button class="btn sm" id="todayM">This month</button>
+    </div>
+    <span class="saving" id="saving"></span>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<main id="app"><div class="loading">Loading your data from Google Drive…</div></main>
+<button class="fab" id="fab">+ Expense</button>
+
+<style>
+#ffLogin { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: none; align-items: center; justify-content: center; padding: 24px; }
+#ffLogin .box { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; text-align: center; }
+#ffLogin img { width: 64px; height: 64px; border-radius: 14px; }
+#ffLogin h1 { font-size: 20px; margin: 10px 0 4px; }
+#ffLogin label { display: block; text-align: left; font-size: 12px; color: var(--text-2); margin: 14px 0 4px; font-weight: 600; }
+#ffLogin input { width: 100%; font-size: 16px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
+#ffLogin #ffPin { font-size: 22px; text-align: center; letter-spacing: 4px; }
+#ffLogin button { width: 100%; margin-top: 16px; padding: 13px; font-size: 16px; font-weight: 600; border: 0; border-radius: 10px; background: var(--accent); color: #fff; }
+#ffLogin .err { color: var(--critical); font-size: 13px; margin-top: 10px; min-height: 18px; }
+#ffLogin .hint { color: var(--muted); font-size: 12px; margin-top: 12px; }
+header { padding-top: env(safe-area-inset-top); }
+main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.fab { bottom: calc(18px + env(safe-area-inset-bottom)); }
+</style>
+<div id="ffLogin"><form class="box" id="ffForm">
+  <img src="apple-touch-icon.png" alt="">
+  <h1>Family Finance</h1>
+  <div class="hint" style="margin-top:0">Your data stays in your Google Sheet.</div>
+  <div id="ffUrlWrap"><label for="ffUrl">App link (from Apps Script, ends with /exec)</label>
+  <input id="ffUrl" type="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></div>
+  <label for="ffPin">PIN</label>
+  <input id="ffPin" type="password" autocomplete="current-password" required>
+  <button id="ffBtn">Unlock</button>
+  <div class="err" id="ffErr"></div>
+  <div class="hint" id="ffChange" style="display:none"><a href="#" id="ffEditUrl">Change app link</a></div>
+</form></div>
+<script>
+/* ===== iPhone app bridge: talks to your Google Apps Script over the internet using your PIN ===== */
+(function () {
+  var K_URL = 'ff_api_url', K_TOK = 'ff_token', queue = [];
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+  function post(body) {
+    return fetch(get(K_URL), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), redirect: 'follow' })
+      .then(function (r) { return r.text(); }).then(function (t) { try { return JSON.parse(t); } catch (e) { throw new Error('The app link doesn\'t look right. Check it ends with /exec and the deployment access is "Anyone".'); } });
+  }
+  function exec(fn, args, ok, fail) {
+    if (!get(K_URL) || !get(K_TOK)) { queue.push([fn, args, ok, fail]); showLogin(); return; }
+    post({ action: 'call', token: get(K_TOK), fn: fn, args: args }).then(function (res) {
+      if (res.ok) { ok && ok(res.result); }
+      else if (res.error === 'AUTH') { set(K_TOK, null); queue.push([fn, args, ok, fail]); showLogin('Please unlock again.'); }
+      else { fail && fail(new Error(res.error)); }
+    }, function (e) { fail && fail(new Error(navigator.onLine === false ? 'No internet connection.' : (e.message || 'Could not reach Google.'))); });
+  }
+  window.google = { script: { get run() {
+    var ok, fail, px = new Proxy({}, { get: function (t, n) {
+      if (n === 'withSuccessHandler') return function (f) { ok = f; return px; };
+      if (n === 'withFailureHandler') return function (f) { fail = f; return px; };
+      return function () { exec(n, [].slice.call(arguments), ok, fail); };
+    } });
+    return px;
+  } } };
+  function $(id) { return document.getElementById(id); }
+  function showLogin(msg) {
+    $('ffLogin').style.display = 'flex'; $('ffErr').textContent = msg || '';
+    var hasUrl = !!get(K_URL); $('ffUrl').value = get(K_URL) || '';
+    $('ffUrlWrap').style.display = hasUrl ? 'none' : ''; $('ffChange').style.display = hasUrl ? '' : 'none';
+    setTimeout(function () { (hasUrl ? $('ffPin') : $('ffUrl')).focus(); }, 100);
+  }
+  $('ffEditUrl').onclick = function (e) { e.preventDefault(); $('ffUrlWrap').style.display = ''; $('ffChange').style.display = 'none'; $('ffUrl').focus(); };
+  $('ffForm').onsubmit = function (e) {
+    e.preventDefault();
+    var url = $('ffUrl').value.trim() || get(K_URL);
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url || '')) { $('ffErr').textContent = 'Paste the Web app link from Apps Script (it ends with /exec).'; $('ffUrlWrap').style.display = ''; return; }
+    set(K_URL, url); $('ffBtn').disabled = true; $('ffBtn').textContent = 'Checking…'; $('ffErr').textContent = '';
+    post({ action: 'login', pin: $('ffPin').value }).then(function (res) {
+      $('ffBtn').disabled = false; $('ffBtn').textContent = 'Unlock';
+      if (!res.ok) { $('ffErr').textContent = res.error; return; }
+      set(K_TOK, res.token); $('ffPin').value = ''; $('ffLogin').style.display = 'none';
+      var q = queue.splice(0); q.forEach(function (c) { exec.apply(null, c); });
+    }, function (err) { $('ffBtn').disabled = false; $('ffBtn').textContent = 'Unlock'; $('ffErr').textContent = err.message; });
+  };
+  window.ffLock = function () {
+    if (!confirm('Lock the app on this phone? You will need the PIN to open it again.')) return;
+    var t = get(K_TOK); set(K_TOK, null); if (t) post({ action: 'logout', token: t }).catch(function () {}); location.reload();
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    var bar = document.querySelector('.hbar');
+    if (bar) { var b = document.createElement('button'); b.className = 'iconbtn'; b.title = 'Lock'; b.setAttribute('aria-label', 'Lock app'); b.textContent = '🔒'; b.onclick = window.ffLock; bar.appendChild(b); }
+  });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
+
+<script>
+/* ======================= State & utilities ======================= */
+var D = null;                       // all tables
+var M = ym(new Date());             // selected month 'YYYY-MM'
+var TAB = 'dash';
+var expFilter = '';
+var KEYS = { People:['Name'], Categories:['Name'], Banks:['Name'], Loans:['ID'], Income:['Month','Person'],
+             Budgets:['Month','Category'], Expenses:['ID'], EmiPayments:['Month','LoanID'], Funds:['Name'], FundTxns:['ID'],
+             Cards:['ID'], CardEmis:['ID'], CardTxns:['ID'], CardStatements:['ID'], AppSettings:['Key'] };
+var TABS = [['dash','Dashboard'],['exp','Expenses'],['plan','Income & Budget'],['loans','EMIs'],['cards','Credit Cards'],['funds','Savings'],['trend','Trends'],['set','Settings']];
+
+function ym(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+function today() { var d = new Date(); return ym(d) + '-' + ('0' + d.getDate()).slice(-2); }
+function addM(m, n) { var p = m.split('-'); return ym(new Date(+p[0], +p[1] - 1 + n, 1)); }
+function diffM(a, b) { var x = a.split('-'), y = b.split('-'); return (y[0] - x[0]) * 12 + (y[1] - x[1]); }
+var MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function mLabel(m, short) { var p = m.split('-'); var n = MN[+p[1] - 1]; return (short ? n.slice(0, 3) : n) + ' ' + (short ? p[0].slice(2) : p[0]); }
+function inr(n, noSym) { if (n === '' || n == null || isNaN(n)) return '—'; var s = Math.round(Math.abs(n)).toLocaleString('en-IN'); return (n < 0 ? '−' : '') + (noSym ? '' : '₹') + s; }
+function num(v) { return v === '' || v == null ? 0 : Number(v) || 0; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function ord(n) { n = +n; var s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function $(id) { return document.getElementById(id); }
+function sum(a, f) { return a.reduce(function (t, x) { return t + (f ? f(x) : x); }, 0); }
+
+/* ======================= Backend bridge ======================= */
+var pending = 0;
+function api(fn) {
+  var args = [].slice.call(arguments, 1);
+  pending++; $('saving').textContent = 'Saving…';
+  return new Promise(function (res, rej) {
+    google.script.run.withSuccessHandler(function (r) { done(); res(r); })
+      .withFailureHandler(function (e) { done(); toast('Could not save: ' + (e && e.message || e)); rej(e); load(); })[fn].apply(null, args);
+  });
+  function done() { pending--; $('saving').textContent = pending ? 'Saving…' : 'Saved ✓'; }
+}
+function matchKeys(table, a, b) { return KEYS[table].every(function (k) { return String(a[k]) === String(b[k]); }); }
+function save(table, obj) {
+  var arr = D[table], key = obj._orig ? (function () { var o = {}; o[KEYS[table][0]] = obj._orig; return o; })() : obj;
+  if (KEYS[table][0] === 'ID' && !obj.ID) obj.ID = 'n' + Date.now().toString(36);
+  if (table === 'Expenses' || table === 'FundTxns' || table === 'CardTxns') obj.Month = String(obj.Date).slice(0, 7);
+  if (obj._orig && obj._orig !== obj[KEYS[table][0]]) localCascade(table, obj._orig, obj[KEYS[table][0]]);
+  var i = arr.findIndex(function (r) { return matchKeys(table, r, key); });
+  var clean = Object.assign({}, obj); delete clean._orig;
+  if (i >= 0) arr[i] = Object.assign({}, arr[i], clean); else arr.push(clean);
+  render();
+  return api('upsert', table, obj);
+}
+function del(table, keyObj) {
+  D[table] = D[table].filter(function (r) { return !matchKeys(table, r, keyObj); });
+  render();
+  return api('removeRow', table, keyObj);
+}
+function localCascade(table, from, to) {
+  var map = { People: [['Income','Person']], Categories: [['Expenses','Category'],['Budgets','Category']], Banks: [['Loans','Bank']], Funds: [['FundTxns','Fund']] }[table] || [];
+  map.forEach(function (p) { D[p[0]].forEach(function (r) { if (r[p[1]] === from) r[p[1]] = to; }); });
+}
+function load() {
+  google.script.run.withSuccessHandler(function (d) { D = d; ['Funds', 'FundTxns', 'Cards', 'CardEmis', 'CardTxns', 'CardStatements', 'AppSettings'].forEach(function (k) { D[k] = D[k] || []; }); render(); })
+    .withFailureHandler(function (e) { $('app').innerHTML = '<div class="card">Could not load data: ' + esc(e.message || e) + '<br><span class="note">Did you run <b>setup</b> once in the Apps Script editor?</span></div>'; })
+    .getAll();
+}
+function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3000); }
+
+/* ======================= Calculations ======================= */
+function people() { return D.People.filter(function (p) { return p.Active; }).sort(function (a, b) { return num(a.Order) - num(b.Order); }); }
+function cats(all) { return D.Categories.filter(function (c) { return all || c.Active; }).sort(function (a, b) { return num(a.Order) - num(b.Order); }); }
+
+// first month you started tracking (earliest month with any entry) – nothing is counted before it
+function startMonth() {
+  var all = D.Income.map(function (r) { return r.Month; }).concat(D.Expenses.map(function (r) { return r.Month; }), D.EmiPayments.map(function (r) { return r.Month; })).filter(Boolean).sort();
+  return all[0] || ym(new Date());
+}
+function loanActive(l, m) {
+  if (m < startMonth()) return false;
+  if (l.FirstMonth && m < l.FirstMonth) return false;
+  if (l.LastMonth && m > l.LastMonth) return false;
+  if (l.Status === 'Closed') { if (!l.ClosedMonth) return false; if (m >= l.ClosedMonth) return false; }
+  return true;
+}
+function remaining(l, m) { return loanActive(l, m) ? diffM(m, l.LastMonth) + 1 : 0; }
+function isPaid(l, m) { return D.EmiPayments.some(function (p) { return p.Month === m && p.LoanID === l.ID; }); }
+function loansFor(m) { return D.Loans.filter(function (l) { return loanActive(l, m); }).sort(function (a, b) { return num(a.DueDay) - num(b.DueDay) || a.Name.localeCompare(b.Name); }); }
+
+function incomeFor(m) {
+  if (m < startMonth()) return [];
+  return people().map(function (p) {
+    var r = D.Income.find(function (i) { return i.Month === m && i.Person === p.Name; }) || {};
+    return { name: p.Name, expected: r.Expected !== undefined && r.Expected !== '' ? num(r.Expected) : num(p.ExpectedIncome), actual: r.Actual === undefined || r.Actual === '' ? null : num(r.Actual), note: r.Note || '' };
+  });
+}
+function budgetFor(m) {
+  var exps = D.Expenses.filter(function (e) { return e.Month === m; });
+  var list = cats(true).map(function (c) {
+    var b = D.Budgets.find(function (x) { return x.Month === m && x.Category === c.Name; });
+    var spent = sum(exps.filter(function (e) { return e.Category === c.Name; }), function (e) { return num(e.Amount); });
+    return { name: c.Name, planned: b ? num(b.Planned) : (c.Active && m >= startMonth() ? num(c.DefaultPlanned) : 0), custom: !!b, spent: spent, active: c.Active };
+  }).filter(function (x) { return x.active || x.spent || x.planned; });
+  // expenses in categories that no longer exist
+  exps.forEach(function (e) { if (!list.some(function (x) { return x.name === e.Category; })) list.push({ name: e.Category, planned: 0, spent: 0, active: false }); });
+  list.forEach(function (x) { if (!x.active && !x.spent) x.spent = sum(exps.filter(function (e) { return e.Category === x.name; }), function (e) { return num(e.Amount); }); });
+  return list;
+}
+function summary(m) {
+  var inc = incomeFor(m), bud = budgetFor(m), loans = loansFor(m);
+  var expected = sum(inc, function (i) { return i.expected; });
+  var anyActual = inc.some(function (i) { return i.actual !== null; });
+  var actual = anyActual ? sum(inc, function (i) { return i.actual || 0; }) : null;
+  var planned = sum(bud, function (b) { return b.planned; }), spent = sum(bud, function (b) { return b.spent; });
+  var loanEmi = sum(loans, function (l) { return num(l.EMI); }), cardEmi = CC.emiTotal(m);
+  var emi = loanEmi + (countCardEmis() ? cardEmi : 0);
+  var emiPaid = sum(loans.filter(function (l) { return isPaid(l, m); }), function (l) { return num(l.EMI); });
+  var outstanding = sum(loans, function (l) { return num(l.EMI) * remaining(l, m); });
+  var incUse = actual !== null ? actual : expected;
+  var future = m > ym(new Date());
+  var fl = fundFlows(m);
+  var surplus = future ? expected - Math.max(planned, spent) - emi : incUse - spent - emi;
+  return { future: future, before: m < startMonth(), fromFunds: fl.out, toFunds: fl.inn, net: surplus + fl.out - fl.inn, expected: expected, actual: actual, planned: planned, spent: spent, emi: emi, loanEmi: loanEmi, cardEmi: cardEmi, emiPaid: emiPaid,
+           outstanding: outstanding, loans: loans, surplus: surplus, planSurplus: expected - planned - emi, incFromActual: actual !== null };
+}
+function bankNeeds(m) {
+  var map = {};
+  loansFor(m).forEach(function (l) {
+    var b = map[l.Bank] || (map[l.Bank] = { bank: l.Bank, total: 0, unpaid: 0, first: 99, count: 0 });
+    b.total += num(l.EMI); b.count++;
+    if (!isPaid(l, m)) { b.unpaid += num(l.EMI); b.first = Math.min(b.first, num(l.DueDay)); }
+  });
+  return Object.keys(map).map(function (k) {
+    var b = map[k], bk = D.Banks.find(function (x) { return x.Name === k; }) || {};
+    b.balance = bk.CurrentBalance === '' || bk.CurrentBalance == null ? null : num(bk.CurrentBalance);
+    b.updated = bk.UpdatedOn || '';
+    b.short = b.balance === null ? null : Math.max(0, b.unpaid - b.balance);
+    return b;
+  }).sort(function (a, b) { return b.total - a.total; });
+}
+function debtFreeMonth() {
+  var act = D.Loans.filter(function (l) { return l.Status !== 'Closed'; });
+  return act.length ? act.map(function (l) { return l.LastMonth; }).sort().pop() : null;
+}
+
+/* ---------- Savings & investments ---------- */
+var FUND_TYPES = ['Bonds', 'Stocks', 'Mutual funds', 'Fixed deposit', 'Gold', 'Cash', 'Other'];
+function funds(all) { return D.Funds.filter(function (f) { return all || f.Active; }).sort(function (a, b) { return num(a.Order) - num(b.Order) || a.Name.localeCompare(b.Name); }); }
+function txSorted() { return D.FundTxns.slice().sort(function (a, b) { return String(a.Date).localeCompare(String(b.Date)) || String(a.CreatedAt).localeCompare(String(b.CreatedAt)); }); }
+// value of a fund at the end of month `upto` (or now if omitted)
+function fundValue(name, upto) {
+  var v = 0;
+  txSorted().forEach(function (t) {
+    if (t.Fund !== name || (upto && t.Month > upto)) return;
+    if (t.Kind === 'Set value') v = num(t.Amount); else if (t.Kind === 'Add') v += num(t.Amount); else if (t.Kind === 'Withdraw') v -= num(t.Amount);
+  });
+  return v;
+}
+function totalSavings(upto) { return sum(funds(true), function (f) { return fundValue(f.Name, upto); }); }
+function fundFlows(m) {
+  var tx = (D.FundTxns || []).filter(function (t) { return t.Month === m; });
+  return { out: sum(tx.filter(function (t) { return t.Kind === 'Withdraw'; }), function (t) { return num(t.Amount); }),
+           inn: sum(tx.filter(function (t) { return t.Kind === 'Add'; }), function (t) { return num(t.Amount); }) };
+}
+// How long do savings last if every coming month's deficit is paid from them?
+function runway() {
+  var now = ym(new Date()), left = totalSavings(), dfm = debtFreeMonth() || now;
+  var end = addM(dfm > now ? dfm : now, 12), used = 0;
+  for (var m = now; m <= end; m = addM(m, 1)) {
+    var s = summary(m); if (s.before) continue;
+    var gap = m === now ? Math.max(0, -s.net) : Math.max(0, -s.surplus);
+    if (gap > left) return { runsOut: m, left: left, need: gap - left, used: used };
+    left -= gap; used += gap;
+  }
+  return { runsOut: null, left: left, used: used };
+}
+function runwayText(r) {
+  if (!D.Funds.length) return 'Add your savings to see how long they last';
+  return r.runsOut ? 'Covers deficits until ' + mLabel(addM(r.runsOut, -1), true) + ' · short by ' + inr(r.need) + ' in ' + mLabel(r.runsOut, true)
+                   : 'Covers every projected deficit until debt-free · ' + inr(r.left) + ' left';
+}
+
+/* ======================= Rendering ======================= */
+function render() {
+  if (!D) return;
+  $('mLabel').textContent = mLabel(M);
+  $('mPick').value = M;
+  $('tabs').innerHTML = TABS.map(function (t) { return '<button data-tab="' + t[0] + '" class="' + (TAB === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('');
+  var y = window.scrollY;
+  $('app').innerHTML = ({ dash: vDash, exp: vExp, plan: vPlan, loans: vEmiTab, cards: CC.view, funds: vFunds, trend: vTrend, set: vSet })[TAB]();
+  after[TAB] && after[TAB]();
+  window.scrollTo(0, y);
+}
+var after = {};
+
+function statusChip(kind, text) { return '<span class="status st-' + kind + '">' + esc(text) + '</span>'; }
+
+/* ---------- Dashboard ---------- */
+function vDash() {
+  var s = summary(M), banks = bankNeeds(M), bud = budgetFor(M), loans = s.loans;
+  var dm = diffM(ym(new Date()), M), isNow = dm === 0 || dm === 1;  // show balances for this & next month
+  var html = s.before ? '<div class="card note">You started tracking in ' + mLabel(startMonth()) + '. Months before that have no data.</div>' : '';
+  html += '<div class="grid g4">' +
+    kpi('Income ' + (s.incFromActual ? 'received' : '(expected)'), inr(s.actual !== null ? s.actual : s.expected), s.incFromActual ? 'Expected ' + inr(s.expected) : 'Enter actuals in Income & Budget') +
+    kpi('Spent', inr(s.spent), 'Planned ' + inr(s.planned) + ' · ' + (s.planned - s.spent >= 0 ? inr(s.planned - s.spent) + ' left' : inr(s.spent - s.planned) + ' over')) +
+    kpi('EMIs this month', inr(s.loanEmi + s.cardEmi), 'Loans ' + inr(s.loanEmi) + ' · Cards ' + inr(s.cardEmi)) +
+    kpi(s.future ? 'Projected surplus / deficit' : 'Surplus / deficit', inr(s.surplus), (s.future ? 'Expected income − planned − ' : 'Income − spent − ') + (countCardEmis() ? 'all EMIs' : 'loan EMIs') + (s.future ? '' : ' · plan: ' + inr(s.planSurplus)), s.surplus < 0 ? 'crit' : 'good') +
+    '</div>';
+
+  // Deficit / surplus funding from savings
+  if (!s.before) {
+    var tot = totalSavings(), rw = runway();
+    html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">' + (s.surplus < 0 ? 'Cover the deficit from savings' : 'Surplus to savings') + '</h2><span class="spacer"></span><span class="note">Total savings ' + inr(tot) + '</span></div>';
+    if (s.surplus < 0) {
+      var gap = Math.max(0, -s.net);
+      html += '<div class="grid g4" style="margin-top:10px">' + kpi(s.future ? 'Projected deficit' : 'Deficit', inr(-s.surplus), '', null, true) + kpi('Taken from savings', inr(s.fromFunds), s.toFunds ? 'Added ' + inr(s.toFunds) : '', null, true) +
+        kpi('Still to arrange', inr(gap), '', null, true) + '<div class="kpi"><div class="k">Status</div><div class="v" style="font-size:15px;margin-top:6px">' + (gap ? statusChip('crit', inr(gap) + ' uncovered') : statusChip('good', 'Fully covered')) + '</div></div></div>';
+      html += '<div class="row" style="margin-top:10px">' + (gap ? (D.Funds.length ? '<button class="btn primary sm" data-fundtx="Withdraw" data-amt="' + Math.round(gap) + '">Take ' + inr(gap) + ' from savings</button>' : '<button class="btn primary sm" data-goto="funds">Add your savings / investments</button>') : '') +
+        '<span class="note">' + esc(runwayText(rw)) + '</span></div>';
+    } else {
+      var spare = Math.max(0, s.net);
+      html += '<div class="row" style="margin-top:8px"><span>Surplus ' + inr(s.surplus) + (s.toFunds ? ' · moved ' + inr(s.toFunds) + ' to savings' : '') + '</span><span class="spacer"></span>' +
+        (spare && D.Funds.length && !s.future ? '<button class="btn sm" data-fundtx="Add" data-amt="' + Math.round(spare) + '">Move ' + inr(spare) + ' to savings</button>' : '') + '</div><p class="note">' + esc(runwayText(rw)) + '</p>';
+    }
+    html += '</div>';
+  }
+
+  // Credit cards snapshot
+  if (D.Cards.length) {
+    var due = CC.dueSoon(7);
+    html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">Credit cards</h2><span class="spacer"></span><span class="note">Available ' + inr(CC.totalAvail()) + ' · card EMIs ' + inr(s.cardEmi) + '</span><button class="btn sm" data-tab="cards">Open →</button></div>' +
+      (due.length ? '<table style="margin-top:8px">' + due.map(function (u) { var d = new Date(u.due + 'T00:00:00');
+        return '<tr class="' + (u.days <= 3 ? 'due-soon' : '') + '"><td><b>' + esc(u.c.Name) + '</b></td><td>' + d.getDate() + ' ' + MN[d.getMonth()].slice(0, 3) + '</td><td>' + statusChip(u.days <= 3 ? 'crit' : 'muted', u.days === 0 ? 'Due today' : u.days === 1 ? 'Tomorrow' : 'In ' + u.days + ' days') + '</td><td class="r num">' + (u.left !== null ? inr(u.left) + ' to pay' : '<span class="note">bill not entered</span>') + '</td></tr>'; }).join('') + '</table>'
+        : '<p class="note">No card payments due in the next 7 days.</p>') + '</div>';
+  }
+
+  // Bank funding
+  html += '<div class="card" style="margin-top:14px"><div class="row"><h2>Keep this much in each bank</h2><span class="spacer"></span><span class="note">Unpaid EMIs for ' + mLabel(M) + '</span></div>';
+  if (!banks.length) html += '<div class="empty">No EMIs this month.</div>';
+  else {
+    html += '<div class="scroll"><table><tr><th>Bank</th><th>First due</th><th class="r">Total EMI</th><th class="r">Still to debit</th>' + (isNow ? '<th class="r">Current balance</th><th>Status</th>' : '') + '</tr>';
+    banks.forEach(function (b) {
+      var st = b.unpaid === 0 ? statusChip('good', 'All paid') : !isNow ? '' : b.balance === null ? statusChip('muted', 'Enter balance') : b.short > 0 ? statusChip('crit', 'Add ' + inr(b.short)) : statusChip('good', 'Enough');
+      html += '<tr><td><b>' + esc(b.bank) + '</b> <span class="note">' + b.count + ' EMI' + (b.count > 1 ? 's' : '') + '</span></td><td>' + (b.unpaid ? ord(b.first) : '—') + '</td><td class="r num">' + inr(b.total) + '</td><td class="r num"><b>' + inr(b.unpaid) + '</b></td>' +
+        (isNow ? '<td class="r"><input class="cell num" data-bankbal="' + esc(b.bank) + '" value="' + (b.balance === null ? '' : b.balance) + '" placeholder="₹ balance" inputmode="decimal"></td><td>' + st + '</td>' : '') + '</tr>';
+    });
+    html += '<tr class="total"><td>Total</td><td></td><td class="r num">' + inr(sum(banks, function (b) { return b.total; })) + '</td><td class="r num">' + inr(sum(banks, function (b) { return b.unpaid; })) + '</td>' + (isNow ? '<td class="r num">' + inr(sum(banks, function (b) { return b.short || 0; })) + '</td><td class="note">to add</td>' : '') + '</tr></table></div>';
+  }
+  html += '</div>';
+
+  html += '<div class="grid g2">';
+  // EMI calendar
+  html += '<div class="card"><h2>EMI schedule — ' + mLabel(M) + '</h2>';
+  if (!loans.length) html += '<div class="empty">No EMIs.</div>';
+  else {
+    html += '<table><tr><th>Paid</th><th>Due</th><th>Loan</th><th class="r">EMI</th><th class="r">Left</th></tr>';
+    loans.forEach(function (l) {
+      var r = remaining(l, M), paid = isPaid(l, M);
+      html += '<tr class="' + (paid ? 'dim' : '') + '"><td><input type="checkbox" class="chk" data-emipaid="' + l.ID + '"' + (paid ? ' checked' : '') + ' aria-label="Mark ' + esc(l.Name) + ' paid"></td><td>' + ord(l.DueDay) + '</td><td>' + esc(l.Name) + ' <span class="note">' + esc(l.Bank) + '</span>' + (r === 1 ? ' ' + statusChip('good', 'Last EMI') : '') + '</td><td class="r num">' + inr(l.EMI) + '</td><td class="r num">' + r + '</td></tr>';
+    });
+    html += '</table>';
+  }
+  var closed = D.Loans.filter(function (l) { return (l.LastMonth === addM(M, -1) && l.Status !== 'Closed') || (l.Status === 'Closed' && l.ClosedMonth === M); });
+  if (closed.length) html += '<p class="note" style="margin-top:10px">✓ Closed from this month: ' + closed.map(function (l) { return '<b>' + esc(l.Name) + '</b> (frees ' + inr(l.EMI) + '/month)'; }).join(', ') + '</p>';
+  html += '</div>';
+
+  // Budget
+  html += '<div class="card"><h2>Budget vs spent</h2>';
+  bud.forEach(function (b) {
+    var pct = b.planned ? Math.min(100, b.spent / b.planned * 100) : (b.spent ? 100 : 0), over = b.spent > b.planned;
+    html += '<div style="margin-bottom:9px"><div class="row"><span>' + esc(b.name) + '</span><span class="spacer"></span><span class="num">' + inr(b.spent) + ' <span class="note">/ ' + inr(b.planned) + '</span></span>' + (over ? ' ' + statusChip('crit', 'Over ' + inr(b.spent - b.planned)) : '') + '</div><div class="bar"><i class="' + (over ? 'over' : '') + '" style="width:' + pct + '%"></i></div></div>';
+  });
+  html += '</div></div>';
+
+  // Debt snapshot
+  var dfm = debtFreeMonth();
+  html += '<div class="card"><div class="row"><h2 style="margin:0">Debt snapshot</h2><span class="spacer"></span><button class="btn sm" data-goto="loans">Open loans →</button></div>' +
+    '<div class="grid g4" style="margin-top:10px">' + kpi('Outstanding EMIs (incl. this month)', inr(s.outstanding), '', null, true) + kpi('Active loans', String(loans.length), '', null, true) +
+    kpi('Debt-free month', dfm ? mLabel(dfm) : '—', dfm ? diffM(M, dfm) + 1 + ' months from ' + mLabel(M, true) : '', null, true) +
+    kpi('EMI share of income', s.expected ? Math.round(s.emi / s.expected * 100) + '%' : '—', 'of expected income', null, true) + '</div></div>';
+  return html;
+}
+function kpi(k, v, s, tone, plain) {
+  return '<div class="' + (plain ? '' : 'card ') + 'kpi" style="' + (plain ? '' : 'margin:0') + '"><div class="k">' + esc(k) + '</div><div class="v num">' + esc(v) + (tone ? ' ' + statusChip(tone, tone === 'crit' ? 'Deficit' : 'Surplus') : '') + '</div>' + (s ? '<div class="s">' + esc(s) + '</div>' : '') + '</div>';
+}
+
+/* ---------- Expenses ---------- */
+function vExp() {
+  var list = D.Expenses.filter(function (e) { return e.Month === M; });
+  var bud = budgetFor(M);
+  var shown = expFilter ? list.filter(function (e) { return e.Category === expFilter; }) : list;
+  shown.sort(function (a, b) { return String(b.Date).localeCompare(String(a.Date)) || String(b.CreatedAt).localeCompare(String(a.CreatedAt)); });
+  var defDate = M === ym(new Date()) ? today() : M + '-01';
+  var html = '<div class="card"><h2>Add expense</h2><form id="expForm" class="row">' +
+    '<input class="in" type="date" name="Date" value="' + defDate + '" required>' +
+    '<select class="in" name="Category" required>' + cats().map(function (c) { return '<option>' + esc(c.Name) + '</option>'; }).join('') + '</select>' +
+    '<input class="in amt" name="Amount" inputmode="decimal" placeholder="Amount" required>' +
+    '<input class="in" name="Note" placeholder="Note (optional)" style="flex:1;min-width:140px">' +
+    '<button class="btn primary">Add</button></form></div>';
+  html += '<div class="card"><div class="row"><h2>' + mLabel(M) + ' — ' + list.length + ' expenses · ' + inr(sum(list, function (e) { return num(e.Amount); })) + '</h2></div>';
+  html += '<div class="chips"><span class="chip ' + (expFilter ? '' : 'on') + '" data-filter="">All</span>' + bud.filter(function (b) { return b.spent; }).map(function (b) {
+    return '<span class="chip ' + (expFilter === b.name ? 'on' : '') + '" data-filter="' + esc(b.name) + '">' + esc(b.name) + ' · ' + inr(b.spent) + '</span>'; }).join('') + '</div>';
+  if (!shown.length) html += '<div class="empty">No expenses yet for this month.</div>';
+  else {
+    html += '<div class="scroll"><table><tr><th>Date</th><th>Category</th><th>Note</th><th class="r">Amount</th><th></th></tr>';
+    shown.forEach(function (e) {
+      html += '<tr><td class="num">' + esc(String(e.Date).slice(8, 10) + ' ' + mLabel(e.Month, true).slice(0, 3)) + '</td><td>' + esc(e.Category) + '</td><td class="note">' + esc(e.Note) + '</td><td class="r num">' + inr(e.Amount) + '</td><td class="r"><button class="btn sm" data-editexp="' + e.ID + '">Edit</button></td></tr>';
+    });
+    html += '</table></div>';
+  }
+  return html + '</div>';
+}
+after.exp = function () {
+  $('expForm').onsubmit = function (ev) {
+    ev.preventDefault();
+    var f = ev.target, amt = evalAmt(f.Amount.value);
+    if (!(amt > 0)) return toast('Enter a valid amount');
+    save('Expenses', { Date: f.Date.value, Category: f.Category.value, Amount: amt, Note: f.Note.value, CreatedAt: new Date().toISOString() });
+    toast('Added ' + inr(amt) + ' to ' + f.Category.value);
+  };
+};
+// allow "500+250+99" like the Excel formulas
+function evalAmt(s) { s = String(s).replace(/[,₹\s]/g, ''); if (!/^[0-9.+\-]+$/.test(s)) return NaN; return s.split('+').reduce(function (t, p) { return t + p.split('-').reduce(function (a, b, i) { return i ? a - Number(b) : Number(b); }, 0); }, 0); }
+
+function expenseModal(e) {
+  e = e || { Date: M === ym(new Date()) ? today() : M + '-01', Category: (cats()[0] || {}).Name, Amount: '', Note: '' };
+  modal((e.ID ? 'Edit' : 'Add') + ' expense',
+    field('Date', '<input class="in" type="date" name="Date" value="' + esc(e.Date) + '" required>') +
+    field('Category', '<select class="in" name="Category">' + cats(true).filter(function (c) { return c.Active || c.Name === e.Category; }).map(function (c) { return '<option' + (c.Name === e.Category ? ' selected' : '') + '>' + esc(c.Name) + '</option>'; }).join('') + '</select>') +
+    field('Amount (you can type 500+250)', '<input class="in" name="Amount" inputmode="decimal" value="' + esc(e.Amount) + '" required autofocus>') +
+    field('Note', '<input class="in" name="Note" value="' + esc(e.Note) + '">'),
+    function (f) {
+      var amt = evalAmt(f.Amount.value); if (!(amt > 0)) { toast('Enter a valid amount'); return false; }
+      save('Expenses', { ID: e.ID, Date: f.Date.value, Category: f.Category.value, Amount: amt, Note: f.Note.value, CreatedAt: e.CreatedAt || new Date().toISOString() });
+    },
+    e.ID ? function () { del('Expenses', { ID: e.ID }); } : null);
+}
+
+/* ---------- Income & Budget ---------- */
+function vPlan() {
+  var inc = incomeFor(M), bud = budgetFor(M), s = summary(M);
+  var html = '<div class="grid g2"><div class="card"><h2>Income — ' + mLabel(M) + '</h2><table><tr><th>Person</th><th class="r">Expected</th><th class="r">Received</th><th class="r">Diff</th></tr>';
+  inc.forEach(function (i) {
+    var d = i.actual === null ? '' : i.actual - i.expected;
+    html += '<tr><td>' + esc(i.name) + '</td><td class="r"><input class="cell num" data-inc="Expected" data-person="' + esc(i.name) + '" value="' + i.expected + '" inputmode="decimal"></td>' +
+      '<td class="r"><input class="cell num" data-inc="Actual" data-person="' + esc(i.name) + '" value="' + (i.actual === null ? '' : i.actual) + '" placeholder="—" inputmode="decimal"></td><td class="r num">' + (d === '' ? '—' : inr(d)) + '</td></tr>';
+  });
+  html += '<tr class="total"><td>Total</td><td class="r num">' + inr(s.expected) + '</td><td class="r num">' + inr(s.actual) + '</td><td class="r num">' + (s.actual === null ? '—' : inr(s.actual - s.expected)) + '</td></tr></table>' +
+    '<p class="note">Expected defaults come from Settings → People. Change a number here to override just this month.</p></div>';
+
+  html += '<div class="card"><h2>Month summary</h2><table>' +
+    trow('Expected income', s.expected) + trow('Actual income', s.actual) + trow('Planned spending', s.planned) + trow('Actual spending', s.spent) + trow('EMI', s.emi) +
+    '<tr class="total"><td>Planned surplus / deficit</td><td class="r num">' + inr(s.planSurplus) + '</td></tr>' +
+    '<tr class="total"><td>Actual surplus / deficit</td><td class="r num">' + inr(s.surplus) + '</td></tr>' +
+    trow('Taken from savings', s.fromFunds) + trow('Added to savings', s.toFunds) +
+    '<tr class="total"><td>Net after savings</td><td class="r num">' + inr(s.net) + '</td></tr></table>' +
+    '<p class="note">Surplus = income − spending − EMI (same as your Overall Summary sheet).</p></div></div>';
+
+  html += '<div class="card"><div class="row"><h2>Budget — ' + mLabel(M) + '</h2><span class="spacer"></span><button class="btn sm" id="bulkPlan">Copy this month’s changes to next 12 months</button></div><div class="scroll"><table><tr><th>Category</th><th class="r">Planned</th><th class="r">Spent</th><th class="r">Remaining</th><th>Status</th></tr>';
+  bud.forEach(function (b) {
+    var left = b.planned - b.spent;
+    html += '<tr><td>' + esc(b.name) + (b.custom ? ' <span class="note">(this month only)</span>' : '') + '</td><td class="r"><input class="cell num" data-plan="' + esc(b.name) + '" value="' + b.planned + '" inputmode="decimal"></td><td class="r num">' + inr(b.spent) + '</td><td class="r num">' + inr(left) + '</td><td>' +
+      (b.spent === 0 ? statusChip('muted', 'Not spent') : left < 0 ? statusChip('crit', 'Over') : statusChip('good', 'Within')) + '</td></tr>';
+  });
+  html += '<tr class="total"><td>Total</td><td class="r num">' + inr(s.planned) + '</td><td class="r num">' + inr(s.spent) + '</td><td class="r num">' + inr(s.planned - s.spent) + '</td><td></td></tr></table></div>' +
+    '<p class="note">To change the default for all months, edit it in Settings → Categories.</p></div>';
+  return html;
+}
+function trow(k, v) { return '<tr><td>' + k + '</td><td class="r num">' + inr(v) + '</td></tr>'; }
+after.plan = function () {
+  $('bulkPlan').onclick = function () {
+    if (!confirm("Copy this month’s changed planned amounts to the next 12 months?")) return;
+    var bud = budgetFor(M);
+    for (var i = 1; i <= 12; i++) bud.forEach(function (b) { if (b.custom) save('Budgets', { Month: addM(M, i), Category: b.name, Planned: b.planned }); });
+    toast('Copied');
+  };
+};
+
+/* ---------- Loans ---------- */
+function vLoans() {
+  var act = D.Loans.filter(function (l) { return loanActive(l, M); }).sort(function (a, b) { return num(a.DueDay) - num(b.DueDay); });
+  var other = D.Loans.filter(function (l) { return !loanActive(l, M); });
+  var html = '<div class="card"><div class="row"><h2 style="margin:0">Loans active in ' + mLabel(M) + '</h2><span class="spacer"></span><button class="btn primary sm" id="addLoan">+ Add loan</button></div>' +
+    '<div class="scroll" style="margin-top:8px"><table><tr><th>Loan</th><th>Due</th><th>Bank</th><th class="r">EMI</th><th class="r">Months left</th><th class="r">Pending amount</th><th>Last EMI</th><th></th></tr>';
+  act.forEach(function (l) {
+    var r = remaining(l, M);
+    html += '<tr><td><b>' + esc(l.Name) + '</b>' + (l.Notes ? '<div class="note">' + esc(l.Notes) + '</div>' : '') + '</td><td>' + ord(l.DueDay) + '</td><td>' + esc(l.Bank) + '</td><td class="r num">' + inr(l.EMI) + '</td><td class="r num">' + r + '</td><td class="r num">' + inr(num(l.EMI) * r) + '</td><td>' + mLabel(l.LastMonth, true) + (r === 1 ? ' ' + statusChip('good', 'Final') : '') + '</td><td class="r"><button class="btn sm" data-editloan="' + l.ID + '">Edit</button></td></tr>';
+  });
+  html += '<tr class="total"><td>Total</td><td></td><td></td><td class="r num">' + inr(sum(act, function (l) { return num(l.EMI); })) + '</td><td></td><td class="r num">' + inr(sum(act, function (l) { return num(l.EMI) * remaining(l, M); })) + '</td><td></td><td></td></tr></table></div></div>';
+
+  html += '<div class="grid g2"><div class="card"><h2>Monthly EMI from ' + mLabel(M, true) + ' until debt-free</h2><div class="chart" id="chEmi"></div></div>' +
+          '<div class="card"><h2>Outstanding EMI balance</h2><div class="chart" id="chOut"></div></div></div>';
+
+  if (other.length) {
+    html += '<div class="card"><h2>Not active this month (closed or not started)</h2><table><tr><th>Loan</th><th>Bank</th><th class="r">EMI</th><th>Period</th><th>Status</th><th></th></tr>';
+    other.sort(function (a, b) { return String(b.LastMonth).localeCompare(String(a.LastMonth)); }).forEach(function (l) {
+      var st = l.Status === 'Closed' ? statusChip('muted', 'Closed' + (l.ClosedMonth ? ' ' + mLabel(l.ClosedMonth, true) : '')) : l.FirstMonth && M < l.FirstMonth ? statusChip('warn', 'Starts ' + mLabel(l.FirstMonth, true)) : statusChip('good', 'Completed');
+      html += '<tr class="dim"><td>' + esc(l.Name) + '</td><td>' + esc(l.Bank) + '</td><td class="r num">' + inr(l.EMI) + '</td><td>' + (l.FirstMonth ? mLabel(l.FirstMonth, true) : '…') + ' – ' + mLabel(l.LastMonth, true) + '</td><td>' + st + '</td><td class="r"><button class="btn sm" data-editloan="' + l.ID + '">Edit</button></td></tr>';
+    });
+    html += '</table></div>';
+  }
+  return html;
+}
+function afterLoanView() {
+  $('addLoan').onclick = function () { loanModal(); };
+  var end = debtFreeMonth(); if (!end || end < M) end = M;
+  var months = [], emi = [], out = [];
+  for (var m = M; m <= end; m = addM(m, 1)) {
+    var ls = loansFor(m);
+    months.push(m); emi.push(sum(ls, function (l) { return num(l.EMI); })); out.push(sum(ls, function (l) { return num(l.EMI) * remaining(l, m); }));
+  }
+  barChart($('chEmi'), months, [{ name: 'Total EMI', color: 'var(--s-emi)', values: emi }], { single: true });
+  areaChart($('chOut'), months, out, 'var(--s-income)', 'Outstanding');
+};
+function loanModal(l) {
+  l = l || { Name: '', Bank: (D.Banks[0] || {}).Name, EMI: '', DueDay: 5, FirstMonth: M, LastMonth: '', Status: 'Active', Notes: '' };
+  var rem = l.LastMonth ? Math.max(0, diffM(M, l.LastMonth) + 1) : '';
+  modal((l.ID ? 'Edit' : 'Add') + ' loan',
+    field('Loan name', '<input class="in" name="Name" value="' + esc(l.Name) + '" required>') +
+    field('Debited from bank', '<select class="in" name="Bank">' + D.Banks.map(function (b) { return '<option' + (b.Name === l.Bank ? ' selected' : '') + '>' + esc(b.Name) + '</option>'; }).join('') + '</select>') +
+    field('EMI amount', '<input class="in" name="EMI" inputmode="decimal" value="' + esc(l.EMI) + '" required>') +
+    field('Due day of month (1–31)', '<input class="in" name="DueDay" type="number" min="1" max="31" value="' + esc(l.DueDay) + '" required>') +
+    field('First EMI month (optional)', '<input class="in" name="FirstMonth" type="month" value="' + esc(l.FirstMonth) + '">') +
+    field('Months left, counting ' + mLabel(M) + ' — or set last EMI month below', '<input class="in" name="Rem" type="number" min="0" value="' + rem + '">') +
+    field('Last EMI month', '<input class="in" name="LastMonth" type="month" value="' + esc(l.LastMonth) + '">') +
+    field('Status', '<select class="in" name="Status"><option' + (l.Status !== 'Closed' ? ' selected' : '') + '>Active</option><option' + (l.Status === 'Closed' ? ' selected' : '') + '>Closed</option></select>') +
+    field('If closed early (pre-closure): first month with no EMI', '<input class="in" name="ClosedMonth" type="month" value="' + esc(l.ClosedMonth || '') + '">') +
+    field('Notes', '<input class="in" name="Notes" value="' + esc(l.Notes || '') + '">'),
+    function (f) {
+      var last = f.LastMonth.value;
+      if (f.Rem.value !== '' && String(f.Rem.value) !== String(rem)) last = addM(M, Number(f.Rem.value) - 1);
+      if (!last) { toast('Enter months left or last EMI month'); return false; }
+      var closedM = f.Status.value === 'Closed' ? (f.ClosedMonth.value || M) : '';
+      save('Loans', { ID: l.ID, Name: f.Name.value.trim(), Bank: f.Bank.value, EMI: evalAmt(f.EMI.value), DueDay: Number(f.DueDay.value), FirstMonth: f.FirstMonth.value, LastMonth: last, Status: f.Status.value, ClosedMonth: closedM, Notes: f.Notes.value });
+    },
+    l.ID ? function () { if (confirm('Delete this loan permanently? (To keep history, set Status = Closed instead.)')) del('Loans', { ID: l.ID }); else return false; } : null);
+}
+
+/* ---------- Savings tab ---------- */
+function vFunds() {
+  var fl = fundFlows(M), all = funds(true), rw = runway(), tot = totalSavings(M);
+  var html = '<div class="grid g4">' + kpi('Total savings (end of ' + mLabel(M, true) + ')', inr(tot), all.filter(function (f) { return f.Active; }).length + ' holdings') +
+    kpi('Taken out in ' + mLabel(M, true), inr(fl.out), 'Used to pay the month') + kpi('Added in ' + mLabel(M, true), inr(fl.inn), 'From surplus / new money') +
+    kpi('How long it lasts', rw.runsOut ? mLabel(addM(rw.runsOut, -1)) : (D.Funds.length ? 'Till debt-free' : '—'), rw.runsOut ? 'Short by ' + inr(rw.need) + ' in ' + mLabel(rw.runsOut, true) : (D.Funds.length ? inr(rw.left) + ' left after all deficits' : '')) + '</div>';
+
+  html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">Savings & investments</h2><span class="spacer"></span><button class="btn primary sm" id="addFund">+ Add</button></div>';
+  if (!all.length) html += '<div class="empty">Add your bonds, stocks, mutual funds, FD or cash in hand with their current value. When a month has a deficit, record what you take out and the app tracks what is left.</div>';
+  else {
+    html += '<div class="scroll" style="margin-top:8px"><table><tr><th>Name</th><th>Type</th><th class="r">Value</th><th class="r">This month</th><th></th></tr>';
+    all.forEach(function (f) {
+      var v = fundValue(f.Name, M), tx = D.FundTxns.filter(function (t) { return t.Fund === f.Name && t.Month === M; });
+      var ch = sum(tx, function (t) { return t.Kind === 'Add' ? num(t.Amount) : t.Kind === 'Withdraw' ? -num(t.Amount) : 0; });
+      html += '<tr class="' + (f.Active ? '' : 'dim') + '"><td><b>' + esc(f.Name) + '</b>' + (f.Notes ? '<div class="note">' + esc(f.Notes) + '</div>' : '') + '</td><td>' + esc(f.Type) + '</td><td class="r num"><b>' + inr(v) + '</b></td><td class="r num">' + (ch ? (ch > 0 ? '+' : '') + inr(ch) : '—') + '</td>' +
+        '<td class="r" style="white-space:nowrap"><button class="btn sm" data-fundtx="Withdraw" data-fund="' + esc(f.Name) + '">Take out</button> <button class="btn sm" data-fundtx="Add" data-fund="' + esc(f.Name) + '">Add</button> <button class="btn sm" data-fundtx="Set value" data-fund="' + esc(f.Name) + '">Update value</button> <button class="btn sm" data-editfund="' + esc(f.Name) + '">Edit</button></td></tr>';
+    });
+    html += '<tr class="total"><td>Total</td><td></td><td class="r num">' + inr(tot) + '</td><td class="r num">' + (fl.inn - fl.out ? inr(fl.inn - fl.out) : '—') + '</td><td></td></tr></table></div>' +
+      '<p class="note"><b>Take out</b> = money used to pay this month (reduces the deficit). <b>Add</b> = surplus or new money put in. <b>Update value</b> = set the current market value (stocks/bonds going up or down); it does not count as money in or out.</p>';
+  }
+  html += '</div>';
+
+  var tx = D.FundTxns.filter(function (t) { return t.Month === M; }).sort(function (a, b) { return String(b.Date).localeCompare(String(a.Date)); });
+  html += '<div class="card"><h2>Entries in ' + mLabel(M) + '</h2>';
+  if (!tx.length) html += '<div class="empty">No entries this month.</div>';
+  else {
+    html += '<div class="scroll"><table><tr><th>Date</th><th>Fund</th><th>Type</th><th>Note</th><th class="r">Amount</th><th></th></tr>';
+    tx.forEach(function (t) {
+      var k = t.Kind === 'Withdraw' ? statusChip('crit', 'Taken out') : t.Kind === 'Add' ? statusChip('good', 'Added') : statusChip('muted', 'Value set');
+      html += '<tr><td class="num">' + esc(String(t.Date).slice(8, 10)) + ' ' + mLabel(t.Month, true).slice(0, 3) + '</td><td>' + esc(t.Fund) + '</td><td>' + k + '</td><td class="note">' + esc(t.Note) + '</td><td class="r num">' + inr(t.Amount) + '</td><td class="r"><button class="btn sm" data-edittx="' + t.ID + '">Edit</button></td></tr>';
+    });
+    html += '</table></div>';
+  }
+  html += '</div>';
+  if (all.length) html += '<div class="card"><h2>Total savings over time</h2><div class="chart" id="chFunds"></div></div>';
+  return html;
+}
+after.funds = function () {
+  $('addFund').onclick = function () { fundModal(); };
+  if (!$('chFunds')) return;
+  var first = txSorted()[0], st = first ? first.Month : M, months = [], vals = [];
+  var from = addM(M, -11) > st ? addM(M, -11) : st;
+  for (var m = from; m <= M; m = addM(m, 1)) { months.push(m); vals.push(totalSavings(m)); }
+  if (months.length < 2) { $('chFunds').innerHTML = '<div class="empty">The chart appears from next month, once there are two months of history.</div>'; return; }
+  areaChart($('chFunds'), months, vals, 'var(--s-income)', 'Total savings');
+};
+function fundModal(f) {
+  var isNew = !f; f = f || { Name: '', Type: 'Bonds', Active: true, Notes: '' };
+  modal(isNew ? 'Add savings / investment' : 'Edit ' + f.Name,
+    field('Name (e.g. RBI Bonds, Zerodha stocks, Cash at home)', '<input class="in" name="Name" value="' + esc(f.Name) + '" required>') +
+    field('Type', '<select class="in" name="Type">' + FUND_TYPES.map(function (t) { return '<option' + (t === f.Type ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>') +
+    (isNew ? field('Current value', '<input class="in" name="Value" inputmode="decimal" required>') + field('As of date', '<input class="in" type="date" name="Date" value="' + (M === ym(new Date()) ? today() : M + '-01') + '">') : '') +
+    field('Active', '<select class="in" name="Active"><option value="1">Yes</option><option value="0"' + (f.Active ? '' : ' selected') + '>No (sold / closed)</option></select>') +
+    field('Notes', '<input class="in" name="Notes" value="' + esc(f.Notes || '') + '">'),
+    function (fm) {
+      var nm = fm.Name.value.trim(); if (!nm) return false;
+      if ((isNew || nm !== f.Name) && D.Funds.some(function (x) { return x.Name === nm; })) { toast('That name already exists'); return false; }
+      var v = isNew ? evalAmt(fm.Value.value) : 0;
+      if (isNew && !(v >= 0)) { toast('Enter the current value'); return false; }
+      var o = { Name: nm, Type: fm.Type.value, Active: fm.Active.value === '1' ? 'TRUE' : 'FALSE', Order: f.Order || D.Funds.length + 1, Notes: fm.Notes.value };
+      if (!isNew && nm !== f.Name) o._orig = f.Name;
+      var p = save('Funds', o);
+      var r = D.Funds.find(function (x) { return x.Name === nm; }); if (r) r.Active = o.Active === 'TRUE';
+      if (isNew) save('FundTxns', { Date: fm.Date.value || today(), Fund: nm, Kind: 'Set value', Amount: v, Note: 'Opening value', CreatedAt: new Date().toISOString() });
+      render();
+    },
+    isNew ? null : function () {
+      var tx = D.FundTxns.filter(function (t) { return t.Fund === f.Name; });
+      var outs = tx.filter(function (t) { return t.Kind === 'Withdraw' || t.Kind === 'Add'; }).length;
+      var msg = 'Delete "' + f.Name + '" permanently?' + (tx.length ? '\n\nIts ' + tx.length + ' entr' + (tx.length > 1 ? 'ies' : 'y') + ' will also be deleted.' : '') +
+        (outs ? '\n' + outs + ' of them are take-outs/adds, so the "Taken from savings" figures for those months will change.' : '') +
+        '\n\nTip: to keep the history, choose Edit → Active: No instead.';
+      if (!confirm(msg)) return false;
+      D.Funds = D.Funds.filter(function (x) { return x.Name !== f.Name; });
+      D.FundTxns = D.FundTxns.filter(function (t) { return t.Fund !== f.Name; });
+      render(); api('deleteFund', f.Name); toast('Deleted ' + f.Name);
+    });
+}
+function fundTxModal(kind, fundName, amt, t) {
+  var now = ym(new Date());
+  t = t || { Date: M === now ? today() : M + (M < now ? '-28' : '-01'), Fund: fundName || (funds()[0] || {}).Name, Kind: kind, Amount: amt || '', Note: kind === 'Withdraw' ? 'Deficit for ' + mLabel(M) : '' };
+  var titles = { 'Withdraw': 'Take money out', 'Add': 'Add money', 'Set value': 'Update current value' };
+  modal(t.ID ? 'Edit entry' : titles[t.Kind],
+    field('Fund', '<select class="in" name="Fund">' + funds(true).filter(function (f) { return f.Active || f.Name === t.Fund; }).map(function (f) { return '<option value="' + esc(f.Name) + '"' + (f.Name === t.Fund ? ' selected' : '') + '>' + esc(f.Name) + ' (' + inr(fundValue(f.Name)) + ')</option>'; }).join('') + '</select>') +
+    field('Type', '<select class="in" name="Kind">' + [['Withdraw', 'Take out (to pay this month)'], ['Add', 'Add money'], ['Set value', 'Update current value']].map(function (k) { return '<option value="' + k[0] + '"' + (k[0] === t.Kind ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select>') +
+    field('Amount (for "Update current value", enter the new total value)', '<input class="in" name="Amount" inputmode="decimal" value="' + esc(t.Amount) + '" required autofocus>') +
+    field('Date', '<input class="in" type="date" name="Date" value="' + esc(t.Date) + '" required>') +
+    field('Note', '<input class="in" name="Note" value="' + esc(t.Note || '') + '">'),
+    function (f) {
+      var a = evalAmt(f.Amount.value); if (!(a >= 0)) { toast('Enter a valid amount'); return false; }
+      var fund = f.Fund.value;
+      if (f.Kind.value === 'Withdraw' && !t.ID && a > fundValue(fund)) toast('Note: that is more than ' + fund + ' currently holds');
+      save('FundTxns', { ID: t.ID, Date: f.Date.value, Fund: fund, Kind: f.Kind.value, Amount: a, Note: f.Note.value, CreatedAt: t.CreatedAt || new Date().toISOString() });
+    },
+    t.ID ? function () { del('FundTxns', { ID: t.ID }); } : null);
+}
+
+/* ---------- EMIs tab: Loan EMIs | Card EMIs | All EMIs ---------- */
+var ETAB = 'loan';
+function appSetting(k) { var r = (D.AppSettings || []).find(function (x) { return x.Key === k; }); return r ? String(r.Value) : ''; }
+function countCardEmis() { return appSetting('CountCardEmis') === 'Yes'; }
+function vEmiTab() {
+  var nav = '<div class="chips" style="margin-bottom:14px">' + [['loan', 'Loan EMIs'], ['card', 'Card EMIs'], ['all', 'All EMIs (combined)']].map(function (e) {
+    return '<span class="chip ' + (ETAB === e[0] ? 'on' : '') + '" data-etab="' + e[0] + '">' + e[1] + '</span>'; }).join('') + '</div>';
+  return nav + (ETAB === 'loan' ? vLoans() : ETAB === 'card' ? CC.emiView() : vAllEmis());
+}
+function vAllEmis() {
+  var loans = loansFor(M), cemis = CC.emisFor(M);
+  var lt = sum(loans, function (l) { return num(l.EMI); }), ct = sum(cemis, function (e) { return num(e.EMI); });
+  var noEnd = cemis.filter(function (e) { return !e.LastMonth; }).length;
+  var rows = loans.map(function (l) { var r = remaining(l, M); return { type: 'Loan', name: l.Name, from: l.Bank, due: num(l.DueDay), emi: num(l.EMI), left: r, last: l.LastMonth, edit: 'data-editloan="' + l.ID + '"' }; })
+    .concat(cemis.map(function (e) { var c = CC.card(e.CardID), r = CC.emiLeft(e, M); return { type: 'Card', name: e.Item, from: c.Name, due: num(c.DueDay), emi: num(e.EMI), left: r, last: e.LastMonth, edit: 'data-ceditemi="' + e.ID + '"' }; }))
+    .sort(function (a, b) { return a.due - b.due || b.emi - a.emi; });
+  var html = '<div class="grid g4">' + kpi('Loan EMIs · ' + mLabel(M, true), inr(lt), loans.length + ' loans') + kpi('Card EMIs · ' + mLabel(M, true), inr(ct), cemis.length + ' EMIs on cards') +
+    kpi('All EMIs together', inr(lt + ct), 'Loans + cards') +
+    kpi('In surplus / deficit', countCardEmis() ? 'Loans + cards' : 'Loans only', 'Change in Settings') + '</div>';
+  html += '<div class="card" style="margin-top:14px"><h2>Every EMI in ' + mLabel(M) + ', by due date</h2><div class="scroll"><table><tr><th>Type</th><th>EMI for</th><th>Paid from</th><th>Due</th><th class="r">EMI</th><th class="r">Months left</th><th>Last EMI</th><th class="r">Pending</th><th></th></tr>';
+  rows.forEach(function (r) {
+    html += '<tr><td>' + statusChip(r.type === 'Loan' ? 'muted' : 'warn', r.type) + '</td><td><b>' + esc(r.name) + '</b></td><td>' + esc(r.from) + '</td><td>' + (r.due ? ord(r.due) : '—') + '</td><td class="r num">' + inr(r.emi) + '</td><td class="r num">' + (r.left === null ? statusChip('warn', 'add') : r.left) + '</td><td>' + (r.last ? mLabel(r.last, true) : '—') + '</td><td class="r num">' + (r.left === null ? '—' : inr(r.emi * r.left)) + '</td><td class="r"><button class="btn sm" ' + r.edit + '>Edit</button></td></tr>';
+  });
+  html += '<tr class="total"><td>Total</td><td></td><td></td><td></td><td class="r num">' + inr(lt + ct) + '</td><td></td><td></td><td class="r num">' + inr(sum(rows.filter(function (r) { return r.left !== null; }), function (r) { return r.emi * r.left; })) + '</td><td></td></tr></table></div></div>';
+  html += '<div class="card"><h2>Loan vs card EMIs — next 24 months</h2><div class="chart" id="chAll"></div></div>';
+  html += '<div class="card"><h2>Month by month</h2><div class="scroll"><table><tr><th>Month</th><th class="r">Loan EMIs</th><th class="r">Card EMIs</th><th class="r">Total</th></tr>';
+  for (var i = 0; i < 12; i++) { var m = addM(M, i), a = sum(loansFor(m), function (l) { return num(l.EMI); }), b = CC.emiTotal(m);
+    html += '<tr><td>' + mLabel(m) + '</td><td class="r num">' + inr(a) + '</td><td class="r num">' + inr(b) + '</td><td class="r num"><b>' + inr(a + b) + '</b></td></tr>'; }
+  html += '</table></div>' + (noEnd ? '<p class="note">' + noEnd + ' card EMI' + (noEnd > 1 ? 's have' : ' has') + ' no "months left" yet, so ' + (noEnd > 1 ? 'they are' : 'it is') + ' shown as continuing. Add the months in Card EMIs → Edit.</p>' : '') + '</div>';
+  return html;
+}
+after.loans = function () {
+  if (ETAB === 'loan') return afterLoanView();
+  if (ETAB !== 'all') return;
+  var months = [], a = [], b = [];
+  for (var i = 0; i < 24; i++) { var m = addM(M, i); months.push(m); a.push(sum(loansFor(m), function (l) { return num(l.EMI); })); b.push(CC.emiTotal(m)); }
+  barChart($('chAll'), months, [{ name: 'Loan EMIs', color: 'var(--s-income)', values: a }, { name: 'Card EMIs', color: 'var(--s-spend)', values: b }]);
+};
+
+/* =====================================================================
+   Credit Cards module (merged from the Credit Card Tracker).
+   Uses the shared data D, month M and the Family Finance save/del/render.
+   ===================================================================== */
+var finSave = save, finDel = del, finRender = render;
+var CC = (function () {
+var FILTER = '', CTAB = 'over';
+function save(table, obj) { return finSave(table, obj); }
+function del(table, id) { return finDel(table, { ID: id }); }
+function render() { finRender(); }
+var KINDS = [['Spend', 'Spend / purchase', -1], ['Wallet load', 'Wallet load (Paytm, Amazon Pay…)', -1], ['Payment', 'Bill payment', 1], ['Refund', 'Refund / cashback', 1], ['Charge', 'Interest / fee / GST charged', -1], ['Cash', 'Cash withdrawal', -1]];
+function kindSign(k) { var x = KINDS.find(function (z) { return z[0] === k; }); return x ? x[2] : -1; }
+function kindLabel(k) { var x = KINDS.find(function (z) { return z[0] === k; }); return x ? x[1].replace(/ \(.*/, '') : k; }
+function ym(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+function iso(d) { return ym(d) + '-' + ('0' + d.getDate()).slice(-2); }
+function today() { return iso(new Date()); }
+function addM(m, n) { var p = m.split('-'); return ym(new Date(+p[0], +p[1] - 1 + n, 1)); }
+function diffM(a, b) { var x = a.split('-'), y = b.split('-'); return (y[0] - x[0]) * 12 + (y[1] - x[1]); }
+function daysBetween(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5); }
+var MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function mLabel(m, s) { var p = m.split('-'), n = MN[+p[1] - 1]; return s ? n.slice(0, 3) + ' ' + p[0].slice(2) : n + ' ' + p[0]; }
+function dLabel(d) { if (!d) return '—'; var x = new Date(d + 'T00:00:00'); return x.getDate() + ' ' + MN[x.getMonth()].slice(0, 3); }
+function ord(n) { n = +n; var s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function inr(n, dec) { if (n === '' || n == null || isNaN(n)) return '—'; var v = Math.abs(n); return (n < -0.004 ? '−' : '') + '₹' + (dec ? v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Math.round(v).toLocaleString('en-IN')); }
+function num(v) { return v === '' || v == null ? 0 : Number(v) || 0; }
+function has(v) { return v !== '' && v != null; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function $(id) { return document.getElementById(id); }
+function sum(a, f) { return a.reduce(function (t, x) { return t + (f ? f(x) : x); }, 0); }
+function chip(k, t) { return '<span class="status st-' + k + '">' + esc(t) + '</span>'; }
+function toast(m) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3000); }
+function evalAmt(s) { s = String(s).replace(/[,₹\s]/g, ''); if (s === '') return ''; if (!/^[0-9.+\-]+$/.test(s)) return NaN; return s.split('+').reduce(function (t, p) { return t + p.split('-').reduce(function (a, b, i) { return i ? a - Number(b) : Number(b); }, 0); }, 0); }
+/* ======================= Calculations ======================= */
+function cards(all) { return D.Cards.filter(function (c) { return all || c.Active; }).sort(function (a, b) { return num(a.Order) - num(b.Order); }); }
+function card(id) { return D.Cards.find(function (c) { return c.ID === id; }) || { Name: '?' }; }
+// Estimated available now = last checked available − spends since + payments since
+function estAvail(c) {
+  if (!has(c.Available)) return null;
+  var tx = D.CardTxns.filter(function (t) { return t.CardID === c.ID && afterCheck(c, t); });
+  return num(c.Available) + sum(tx, function (t) { return kindSign(t.Kind) * num(t.Amount); });
+}
+// an entry counts after the check if it is on a later date, or the same date but added after the check
+function afterCheck(c, t) { if (!c.CheckedOn) return true; if (t.Date !== c.CheckedOn) return t.Date > c.CheckedOn; return !c.CheckedAt || String(t.CreatedAt) > String(c.CheckedAt); }
+function sinceCheck(c) { return D.CardTxns.filter(function (t) { return t.CardID === c.ID && c.CheckedOn && afterCheck(c, t); }).length; }
+function used(c) { var a = estAvail(c); return has(c.Limit) && a !== null ? num(c.Limit) - a : (has(c.Outstanding) ? num(c.Outstanding) : null); }
+function dayIn(m, d) { var p = m.split('-'), last = new Date(+p[0], +p[1], 0).getDate(); return m + '-' + ('0' + Math.min(num(d), last)).slice(-2); }
+function nextDue(c, from) { from = from || today(); if (!has(c.DueDay)) return null; var d = dayIn(from.slice(0, 7), c.DueDay); return d >= from ? d : dayIn(addM(from.slice(0, 7), 1), c.DueDay); }
+function emiActive(e, m) {
+  if (e.FirstMonth && m < e.FirstMonth) return false;
+  if (e.LastMonth && m > e.LastMonth) return false;
+  if (e.Status === 'Closed' && (!e.ClosedMonth || m >= e.ClosedMonth)) return false;
+  return true;
+}
+function emisFor(m, cardId) { return D.CardEmis.filter(function (e) { return emiActive(e, m) && (!cardId || e.CardID === cardId) && card(e.CardID).Active !== false; }); }
+function emiLeft(e, m) { return e.LastMonth ? diffM(m, e.LastMonth) + 1 : null; }
+// statement for a card whose due date is `due`, and what has been paid against it
+function stmtFor(cardId, due) { return D.CardStatements.find(function (s) { return s.CardID === cardId && s.DueDate === due; }); }
+function stmtPaid(s) {
+  var next = D.CardStatements.filter(function (x) { return x.CardID === s.CardID && x.StatementDate > s.StatementDate; }).sort(function (a, b) { return a.StatementDate.localeCompare(b.StatementDate); })[0];
+  var from = s.StatementDate || addM(s.Month, 0) + '-01', to = next ? next.StatementDate : '9999';
+  return sum(D.CardTxns.filter(function (t) { return t.CardID === s.CardID && t.Kind === 'Payment' && t.Date >= from && t.Date < to; }), function (t) { return num(t.Amount); });
+}
+function stmtStatus(s) {
+  var paid = stmtPaid(s), left = num(s.TotalDue) - paid, days = s.DueDate ? daysBetween(today(), s.DueDate) : null;
+  if (left <= 0.5) return { k: 'good', t: 'Paid', left: 0, paid: paid };
+  if (has(s.MinDue) && paid >= num(s.MinDue) && paid > 0) return { k: 'warn', t: 'Min paid · interest will apply', left: left, paid: paid };
+  if (days !== null && days < 0) return { k: 'crit', t: 'Overdue ' + (-days) + 'd', left: left, paid: paid };
+  if (days !== null && days <= 3) return { k: 'crit', t: days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : 'Due in ' + days + 'd', left: left, paid: paid };
+  return { k: 'muted', t: days !== null ? 'Due in ' + days + 'd' : 'Unpaid', left: left, paid: paid };
+}
+function monthCharges(m) {
+  var st = D.CardStatements.filter(function (s) { return s.Month === m; });
+  var tx = D.CardTxns.filter(function (t) { return t.Month === m && t.Kind === 'Charge'; });
+  return { interest: sum(st, function (s) { return num(s.Interest); }), other: sum(st, function (s) { return num(s.OtherCharges); }) + sum(tx, function (t) { return num(t.Amount); }),
+           wallet: sum(D.CardTxns.filter(function (t) { return t.Month === m && has(t.Fee); }), function (t) { return num(t.Fee); }) };
+}
+function kpi(k, v, s, extra) { return '<div class="card kpi" style="margin:0"><div class="k">' + esc(k) + '</div><div class="v num">' + esc(v) + (extra || '') + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
+
+/* ---------- Dashboard ---------- */
+function vDash() {
+  var cs = cards(), t = today(), avail = sum(cs, function (c) { return estAvail(c) || 0; });
+  var emiM = sum(emisFor(M), function (e) { return num(e.EMI); }), ch = monthCharges(M);
+  var up = cs.map(function (c) { var d = nextDue(c, t); var s = d && stmtFor(c.ID, d); return { c: c, due: d, days: d ? daysBetween(t, d) : 999, s: s, st: s ? stmtStatus(s) : null, emi: sum(emisFor(d ? d.slice(0, 7) : M, c.ID), function (e) { return num(e.EMI); }) }; })
+    .sort(function (a, b) { return a.days - b.days; });
+  var week = up.filter(function (u) { return u.days <= 7; });
+  var html = '<div class="grid g4">' +
+    kpi('Available across cards', inr(avail), cs.length + ' cards · as last checked + entries since') +
+    kpi('Card EMIs in ' + mLabel(M, true), inr(emiM), emisFor(M).length + ' EMIs on ' + cardsWithEmi(M) + ' cards') +
+    kpi('Due in next 7 days', String(week.length) + ' card' + (week.length === 1 ? '' : 's'), week.length ? week.map(function (u) { return esc(u.c.Name) + ' ' + dLabel(u.due); }).join(', ') : 'Nothing due this week') +
+    kpi('Interest & charges ' + mLabel(M, true), inr(ch.interest + ch.other), 'Wallet fees ' + inr(ch.wallet, true)) + '</div>';
+
+  html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">Upcoming due dates</h2><span class="spacer"></span><span class="note">Today ' + dLabel(t) + '</span></div><div class="scroll" style="margin-top:8px"><table><tr><th>Card</th><th>Due</th><th class="r hide-sm">Bill</th><th class="r">To pay</th><th class="r hide-sm">Card EMI</th><th>Status</th></tr>';
+  up.forEach(function (u) {
+    var st = u.st ? chip(u.st.k, u.st.t) : chip(u.days <= 3 ? 'crit' : 'muted', (u.days === 0 ? 'Due today' : u.days === 1 ? 'Tomorrow' : 'In ' + u.days + ' days') + ' · no bill yet');
+    html += '<tr class="' + (u.days <= 3 && (!u.st || u.st.left > 0) ? 'due-soon' : '') + '"><td><b>' + esc(u.c.Name) + '</b></td><td>' + (u.due ? dLabel(u.due) : '—') + '</td><td class="r num hide-sm">' + (u.s ? inr(u.s.TotalDue) : '—') + '</td><td class="r num">' + (u.st ? inr(u.st.left) : '—') + '</td><td class="r num hide-sm">' + (u.emi ? inr(u.emi) : '—') + '</td><td>' + st + '<div class="row" style="margin-top:4px"><button class="btn sm" data-addstmt="' + u.c.ID + '" data-due="' + (u.due || '') + '">' + (u.s ? 'Edit bill' : '+ Bill') + '</button><button class="btn sm" data-cpay="' + u.c.ID + '">Pay</button></div></td></tr>';
+  });
+  html += '</table></div><p class="note">When a bill is generated, tap <b>+ Bill</b> and enter the total due, minimum due and interest from the statement. Payments you record are matched to that bill automatically.</p></div>';
+
+  html += '<div class="card"><div class="row"><h2 style="margin:0">Available on each card</h2><span class="spacer"></span><button class="btn sm" data-ctab="cards">Update balances</button></div><div class="scroll" style="margin-top:8px"><table><tr><th>Card</th><th class="r">Available now</th><th class="r hide-sm">Limit</th><th>Used</th><th class="hide-sm">Checked</th></tr>';
+  cs.forEach(function (c) {
+    var a = estAvail(c), u = used(c), pct = has(c.Limit) && u !== null ? u / num(c.Limit) * 100 : null, n = sinceCheck(c);
+    html += '<tr><td><b>' + esc(c.Name) + '</b></td><td class="r num"><b>' + inr(a) + '</b>' + (n ? '<div class="note">est. (' + n + ' entr' + (n > 1 ? 'ies' : 'y') + ' since check)</div>' : '') + '</td><td class="r num hide-sm">' + (has(c.Limit) ? inr(c.Limit) : '<span class="note">add</span>') + '</td><td>' +
+      (pct !== null ? '<div class="num">' + Math.round(pct) + '%</div><div class="bar"><i class="' + (pct > 80 ? 'hi' : '') + '" style="width:' + Math.min(100, pct) + '%"></i></div>' : (u !== null ? inr(u) : '<span class="note">add limit</span>')) + '</td><td class="note hide-sm">' + dLabel(c.CheckedOn) + '</td></tr>';
+  });
+  html += '<tr class="total"><td>Total</td><td class="r num">' + inr(avail) + '</td><td class="r num hide-sm">' + inr(sum(cs.filter(function (c) { return has(c.Limit); }), function (c) { return num(c.Limit); })) + '</td><td></td><td class="hide-sm"></td></tr></table></div></div>';
+  return html;
+}
+function cardsWithEmi(m) { var s = {}; emisFor(m).forEach(function (e) { s[e.CardID] = 1; }); return Object.keys(s).length; }
+
+/* ---------- Bills & interest ---------- */
+function vBills() {
+  var st = D.CardStatements.filter(function (s) { return s.Month === M; }).sort(function (a, b) { return String(a.DueDate).localeCompare(String(b.DueDate)); });
+  var ch = monthCharges(M);
+  var html = '<div class="grid g4">' + kpi('Bills generated in ' + mLabel(M, true), String(st.length), inr(sum(st, function (s) { return num(s.TotalDue); })) + ' total due') +
+    kpi('Interest', inr(ch.interest), 'From statements') + kpi('Fees, GST & other charges', inr(ch.other), 'Late fee, GST, annual fee…') +
+    kpi('Paid against these bills', inr(sum(st, stmtPaid)), 'Still to pay ' + inr(sum(st, function (s) { return stmtStatus(s).left; }))) + '</div>';
+  html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">Statements — ' + mLabel(M) + '</h2><span class="spacer"></span><button class="btn primary sm" data-addstmt="">+ Bill</button></div>';
+  if (!st.length) html += '<div class="empty">No bills entered for ' + mLabel(M) + '. When a statement arrives, add it here or from the Dashboard.</div>';
+  else {
+    html += '<div class="scroll" style="margin-top:8px"><table><tr><th>Card</th><th>Bill date</th><th>Due</th><th class="r">Total due</th><th class="r">Min due</th><th class="r">EMI in bill</th><th class="r">Interest</th><th class="r">Charges</th><th class="r">Paid</th><th>Status</th><th></th></tr>';
+    st.forEach(function (s) { var x = stmtStatus(s);
+      html += '<tr><td><b>' + esc(card(s.CardID).Name) + '</b></td><td>' + dLabel(s.StatementDate) + '</td><td>' + dLabel(s.DueDate) + '</td><td class="r num">' + inr(s.TotalDue) + '</td><td class="r num">' + inr(s.MinDue) + '</td><td class="r num">' + inr(s.EmiBilled) + '</td><td class="r num">' + inr(s.Interest) + '</td><td class="r num">' + inr(s.OtherCharges) + '</td><td class="r num">' + inr(x.paid) + '</td><td>' + chip(x.k, x.t) + '</td><td class="r"><button class="btn sm" data-editstmt="' + s.ID + '">Edit</button></td></tr>'; });
+    html += '</table></div>';
+  }
+  html += '</div>';
+  // payment check: available before vs after
+  var pays = D.CardTxns.filter(function (t) { return t.Month === M && t.Kind === 'Payment'; }).sort(function (a, b) { return a.Date.localeCompare(b.Date); });
+  html += '<div class="card"><h2>Payments — did the full amount come back to your limit?</h2>';
+  if (!pays.length) html += '<div class="empty">No payments this month. When you pay a bill, enter the available amount before and after paying to see this.</div>';
+  else {
+    html += '<div class="scroll"><table><tr><th>Date</th><th>Card</th><th class="r">Paid</th><th class="r">Available before</th><th class="r">Available after</th><th class="r">Limit went up by</th><th class="r">Didn\'t come back</th></tr>';
+    pays.forEach(function (p) {
+      var ok = has(p.AvailBefore) && has(p.AvailAfter), up = ok ? num(p.AvailAfter) - num(p.AvailBefore) : null, gap = ok ? num(p.Amount) - up : null;
+      html += '<tr><td>' + dLabel(p.Date) + '</td><td>' + esc(card(p.CardID).Name) + '</td><td class="r num">' + inr(p.Amount) + '</td><td class="r num">' + inr(p.AvailBefore) + '</td><td class="r num">' + inr(p.AvailAfter) + '</td><td class="r num">' + inr(up) + '</td><td class="r num">' + (ok ? (gap > 0.5 ? chip('warn', inr(gap)) : chip('good', 'None')) : '<span class="note">enter before/after</span>') + '</td></tr>';
+    });
+    html += '</table></div><p class="note">"Didn\'t come back" = paid − increase in available. This is usually interest, GST, fees, or EMI principal that the bank keeps blocked until the EMI is billed.</p>';
+  }
+  return html + '</div>';
+}
+function stmtModal(s, cardId, due) {
+  var isNew = !s;
+  if (isNew) {
+    var c = card(cardId) || cards()[0], d = due || (c && nextDue(c)) || today();
+    var sd = has(c.StatementDay) ? dayIn(addM(d.slice(0, 7), num(c.StatementDay) > num(c.DueDay) ? -1 : 0), c.StatementDay) : today();
+    s = { CardID: c.ID, StatementDate: sd > today() ? today() : sd, DueDate: d, TotalDue: '', MinDue: '', EmiBilled: sum(emisFor(d.slice(0, 7), c.ID), function (e) { return num(e.EMI); }) || '', Interest: '', OtherCharges: '', Note: '' };
+  }
+  modal(isNew ? 'Add bill (statement)' : 'Edit bill',
+    field('Card', cardSelect('CardID', s.CardID)) + field('Statement / bill date', '<input class="in" type="date" name="StatementDate" value="' + esc(s.StatementDate) + '" required>') +
+    field('Payment due date', '<input class="in" type="date" name="DueDate" value="' + esc(s.DueDate) + '" required>') +
+    field('Total amount due', amt('TotalDue', s.TotalDue, true)) + field('Minimum amount due', amt('MinDue', s.MinDue)) +
+    field('EMI amount included in this bill', amt('EmiBilled', s.EmiBilled)) + field('Interest / finance charges', amt('Interest', s.Interest)) +
+    field('Other charges (GST, late fee, annual fee…)', amt('OtherCharges', s.OtherCharges)) + field('Note', '<input class="in" name="Note" value="' + esc(s.Note || '') + '">'),
+    function (f) {
+      var o = { ID: s.ID, CardID: f.CardID.value, StatementDate: f.StatementDate.value, Month: f.StatementDate.value.slice(0, 7), DueDate: f.DueDate.value, TotalDue: evalAmt(f.TotalDue.value), MinDue: evalAmt(f.MinDue.value), EmiBilled: evalAmt(f.EmiBilled.value), Interest: evalAmt(f.Interest.value), OtherCharges: evalAmt(f.OtherCharges.value), Note: f.Note.value };
+      if (!(o.TotalDue >= 0)) { toast('Enter the total due'); return false; }
+      save('CardStatements', o); toast('Bill saved');
+    }, isNew ? null : function () { if (!confirm('Delete this bill?')) return false; del('CardStatements', s.ID); });
+}
+
+/* ---------- EMIs ---------- */
+function vEmis() {
+  var act = emisFor(M).sort(function (a, b) { return num(card(a.CardID).DueDay) - num(card(b.CardID).DueDay); });
+  var noEnd = act.filter(function (e) { return !e.LastMonth; });
+  var html = '<div class="grid g4">' + kpi('Card EMIs in ' + mLabel(M, true), inr(sum(act, function (e) { return num(e.EMI); })), act.length + ' EMIs') +
+    kpi('Pending (known)', inr(sum(act.filter(function (e) { return e.LastMonth; }), function (e) { return num(e.EMI) * emiLeft(e, M); })), 'EMI × months left') +
+    kpi('Ending this month', String(act.filter(function (e) { return emiLeft(e, M) === 1; }).length), '') +
+    kpi('Missing months left', String(noEnd.length), noEnd.length ? 'Tap Edit to add' : 'All complete') + '</div>';
+  html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">EMIs active in ' + mLabel(M) + '</h2><span class="spacer"></span><button class="btn primary sm" data-caddemi>+ Card EMI</button></div><div class="scroll" style="margin-top:8px"><table><tr><th>Card</th><th>For</th><th class="r">EMI</th><th class="r">Months left</th><th>Last EMI</th><th class="r">Pending</th><th></th></tr>';
+  act.forEach(function (e) { var l = emiLeft(e, M);
+    html += '<tr><td><b>' + esc(card(e.CardID).Name) + '</b><div class="note">due ' + (has(card(e.CardID).DueDay) ? ord(card(e.CardID).DueDay) : '—') + '</div></td><td>' + esc(e.Item) + '</td><td class="r num">' + inr(e.EMI) + '</td><td class="r num">' + (l !== null ? l : chip('warn', 'add')) + '</td><td>' + (e.LastMonth ? mLabel(e.LastMonth, true) + (l === 1 ? ' ' + chip('good', 'Final') : '') : '—') + '</td><td class="r num">' + (l !== null ? inr(num(e.EMI) * l) : '—') + '</td><td class="r"><button class="btn sm" data-ceditemi="' + e.ID + '">Edit</button></td></tr>'; });
+  html += '<tr class="total"><td>Total</td><td></td><td class="r num">' + inr(sum(act, function (e) { return num(e.EMI); })) + '</td><td></td><td></td><td class="r num">' + inr(sum(act.filter(function (e) { return e.LastMonth; }), function (e) { return num(e.EMI) * emiLeft(e, M); })) + '</td><td></td></tr></table></div></div>';
+  html += '<div class="card"><h2>Card EMI total — next 12 months</h2><div class="scroll"><table><tr>' + [0,1,2,3,4,5,6,7,8,9,10,11].map(function (i) { return '<th class="r">' + mLabel(addM(M, i), true) + '</th>'; }).join('') + '</tr><tr>' +
+    [0,1,2,3,4,5,6,7,8,9,10,11].map(function (i) { return '<td class="r num">' + inr(sum(emisFor(addM(M, i)), function (e) { return num(e.EMI); })) + '</td>'; }).join('') + '</tr></table></div>' + (noEnd.length ? '<p class="note">EMIs without "months left" are assumed to continue, so later months may be too high until you add them.</p>' : '') + '</div>';
+  var done = D.CardEmis.filter(function (e) { return !emiActive(e, M); });
+  if (done.length) html += '<div class="card"><h2>Not active this month</h2><table>' + done.map(function (e) { return '<tr class="dim"><td>' + esc(card(e.CardID).Name) + '</td><td>' + esc(e.Item) + '</td><td class="r num">' + inr(e.EMI) + '</td><td>' + (e.FirstMonth || '…') + ' → ' + (e.LastMonth || '…') + (e.Status === 'Closed' ? ' (closed)' : '') + '</td><td class="r"><button class="btn sm" data-ceditemi="' + e.ID + '">Edit</button></td></tr>'; }).join('') + '</table></div>';
+  return html;
+}
+function emiModal(e) {
+  var isNew = !e; e = e || { CardID: (cards()[0] || {}).ID, Item: '', EMI: '', FirstMonth: M, LastMonth: '', Principal: '', Status: 'Active', Notes: '' };
+  var rem = e.LastMonth ? Math.max(0, diffM(M, e.LastMonth) + 1) : '';
+  modal(isNew ? 'Add card EMI' : 'Edit card EMI',
+    field('Card', cardSelect('CardID', e.CardID)) + field('For (phone, TV, balance transfer…)', '<input class="in" name="Item" value="' + esc(e.Item) + '" required>') +
+    field('Monthly EMI', amt('EMI', e.EMI, true)) + field('Months left, counting ' + mLabel(M), '<input class="in" name="Rem" type="number" min="0" value="' + rem + '">') +
+    field('…or last EMI month', '<input class="in" type="month" name="LastMonth" value="' + esc(e.LastMonth) + '">') +
+    field('First EMI month (optional)', '<input class="in" type="month" name="FirstMonth" value="' + esc(e.FirstMonth) + '">') +
+    field('Original amount converted to EMI (optional)', amt('Principal', e.Principal)) +
+    field('Status', '<select class="in" name="Status"><option' + (e.Status !== 'Closed' ? ' selected' : '') + '>Active</option><option' + (e.Status === 'Closed' ? ' selected' : '') + '>Closed</option></select>') +
+    field('Note', '<input class="in" name="Notes" value="' + esc(e.Notes || '') + '">'),
+    function (f) {
+      var last = f.LastMonth.value; if (f.Rem.value !== '' && String(f.Rem.value) !== String(rem)) last = addM(M, Number(f.Rem.value) - 1);
+      save('CardEmis', { ID: e.ID, CardID: f.CardID.value, Item: f.Item.value, EMI: evalAmt(f.EMI.value), FirstMonth: f.FirstMonth.value, LastMonth: last, Principal: evalAmt(f.Principal.value), Status: f.Status.value, ClosedMonth: f.Status.value === 'Closed' ? (e.ClosedMonth || M) : '', Notes: f.Notes.value });
+    }, isNew ? null : function () { if (!confirm('Delete this EMI? (To keep history, set Status = Closed instead.)')) return false; del('CardEmis', e.ID); });
+}
+
+/* ---------- Wallet loads ---------- */
+function vWallet() {
+  // Stored as: Amount = debited from card, Fee = charges to load, loaded in wallet = Amount − Fee
+  var w = D.CardTxns.filter(function (t) { return t.Month === M && t.Kind === 'Wallet load'; }).sort(function (a, b) { return b.Date.localeCompare(a.Date); });
+  var deb = sum(w, function (t) { return num(t.Amount); }), fee = sum(w, function (t) { return num(t.Fee); }), got = deb - fee;
+  var yr = D.CardTxns.filter(function (t) { return t.Kind === 'Wallet load' && t.Month.slice(0, 4) === M.slice(0, 4); });
+  var html = '<div class="grid g4">' + kpi('Money loaded in ' + mLabel(M, true), inr(got), w.length + ' load' + (w.length === 1 ? '' : 's')) +
+    kpi('Debited from cards', inr(deb), 'Loaded + charges') + kpi('Charges paid', inr(fee), got ? pct(fee, got) + ' of money loaded' : '') +
+    kpi('Charges in ' + M.slice(0, 4), inr(sum(yr, function (t) { return num(t.Fee); })), yr.length + ' loads this year') + '</div>';
+  html += '<div class="card" style="margin-top:14px"><div class="row"><h2 style="margin:0">Wallet loads — ' + mLabel(M) + '</h2><span class="spacer"></span><button class="btn primary sm" data-caddtx="Wallet load">+ Wallet load</button></div>';
+  if (!w.length) html += '<div class="empty">No wallet loads this month. Tap + Wallet load, enter the money you need and the charges; the app works out the amount debited from the card.</div>';
+  else {
+    html += '<div class="scroll" style="margin-top:8px"><table><tr><th>Date</th><th>Card</th><th>Wallet / app</th><th class="r">Money needed (loaded)</th><th class="r">Charges</th><th class="r">Debited from card</th><th class="r">Charge %</th><th></th></tr>';
+    w.forEach(function (t) { var g = num(t.Amount) - num(t.Fee);
+      html += '<tr><td>' + dLabel(t.Date) + '</td><td>' + esc(card(t.CardID).Name) + '</td><td>' + esc(t.Party || '—') + (t.Note ? '<div class="note">' + esc(t.Note) + '</div>' : '') + '</td><td class="r num">' + inr(g) + '</td><td class="r num">' + inr(t.Fee) + '</td><td class="r num"><b>' + inr(t.Amount) + '</b></td><td class="r num">' + pct(num(t.Fee), g) + '</td><td class="r"><button class="btn sm" data-cedittx="' + t.ID + '">Edit</button></td></tr>'; });
+    html += '<tr class="total"><td>Total</td><td></td><td></td><td class="r num">' + inr(got) + '</td><td class="r num">' + inr(fee) + '</td><td class="r num">' + inr(deb) + '</td><td class="r num">' + pct(fee, got) + '</td><td></td></tr></table></div>';
+  }
+  html += '</div>';
+  var by = {};
+  D.CardTxns.filter(function (t) { return t.Kind === 'Wallet load'; }).forEach(function (t) { var k = (t.Party || 'Other') + ' · ' + card(t.CardID).Name, b = by[k] = by[k] || { n: 0, g: 0, f: 0, last: '' }; b.n++; b.g += num(t.Amount) - num(t.Fee); b.f += num(t.Fee); if (t.Date > b.last) { b.last = t.Date; b.lp = pct(num(t.Fee), num(t.Amount) - num(t.Fee)); } });
+  if (Object.keys(by).length) html += '<div class="card"><h2>All time by wallet and card</h2><div class="scroll"><table><tr><th>Wallet · card</th><th class="r">Loads</th><th class="r">Money loaded</th><th class="r">Charges</th><th class="r">Avg %</th><th class="r">Last %</th></tr>' +
+    Object.keys(by).sort(function (a, b) { return by[b].f - by[a].f; }).map(function (k) { var b = by[k]; return '<tr><td>' + esc(k) + '</td><td class="r num">' + b.n + '</td><td class="r num">' + inr(b.g) + '</td><td class="r num">' + inr(b.f) + '</td><td class="r num">' + pct(b.f, b.g) + '</td><td class="r num">' + b.lp + '</td></tr>'; }).join('') +
+    '</table></div><p class="note">Compare the charge % to find the cheapest wallet and card combination.</p></div>';
+  return html;
+}
+function pct(f, base) { return base ? (f / base * 100).toFixed(2) + '%' : '—'; }
+// last charge rate used for this wallet (same card first), as charges ÷ money loaded
+function lastRate(party, cardId) {
+  var w = D.CardTxns.filter(function (t) { return t.Kind === 'Wallet load' && num(t.Amount) > num(t.Fee) && (!party || t.Party === party); }).sort(function (a, b) { return String(b.Date + b.CreatedAt).localeCompare(String(a.Date + a.CreatedAt)); });
+  var x = w.find(function (t) { return t.CardID === cardId; }) || w[0];
+  return x ? num(x.Fee) / (num(x.Amount) - num(x.Fee)) : null;
+}
+
+/* ---------- Transactions ---------- */
+function vTxns() {
+  var list = D.CardTxns.filter(function (t) { return t.Month === M && (!FILTER || t.CardID === FILTER); }).sort(function (a, b) { return b.Date.localeCompare(a.Date) || String(b.CreatedAt).localeCompare(String(a.CreatedAt)); });
+  var html = '<div class="card"><div class="row"><h2 style="margin:0">Transactions — ' + mLabel(M) + '</h2><span class="spacer"></span><button class="btn primary sm" data-caddtx="Spend">+ Add</button></div><div class="chips" style="margin-top:10px"><span class="chip ' + (FILTER ? '' : 'on') + '" data-cfilter="">All cards</span>' +
+    cards(true).filter(function (c) { return D.CardTxns.some(function (t) { return t.CardID === c.ID && t.Month === M; }); }).map(function (c) { return '<span class="chip ' + (FILTER === c.ID ? 'on' : '') + '" data-cfilter="' + c.ID + '">' + esc(c.Name) + '</span>'; }).join('') + '</div>';
+  if (!list.length) return html + '<div class="empty">No entries yet. Use + Add for spends, wallet loads, bill payments, refunds or charges.</div></div>';
+  var tot = {}; list.forEach(function (t) { tot[t.Kind] = (tot[t.Kind] || 0) + num(t.Amount); });
+  html += '<div class="note" style="margin-bottom:6px">' + Object.keys(tot).map(function (k) { return kindLabel(k) + ': ' + inr(tot[k]); }).join(' · ') + '</div>';
+  html += '<div class="scroll"><table><tr><th>Date</th><th>Card</th><th>Type</th><th>Where / note</th><th class="r">Amount</th><th></th></tr>';
+  list.forEach(function (t) { var sg = kindSign(t.Kind);
+    var extra = t.Kind === 'Wallet load' ? ' <span class="note">loaded ' + inr(num(t.Amount) - num(t.Fee)) + ' + charges ' + inr(t.Fee) + '</span>' : (has(t.Fee) && num(t.Fee) ? ' <span class="note">fee ' + inr(t.Fee) + '</span>' : '');
+    html += '<tr><td>' + dLabel(t.Date) + '</td><td>' + esc(card(t.CardID).Name) + '</td><td>' + chip(sg > 0 ? 'good' : t.Kind === 'Charge' ? 'crit' : 'muted', kindLabel(t.Kind)) + '</td><td>' + esc(t.Party) + (t.Note ? ' <span class="note">' + esc(t.Note) + '</span>' : '') + extra + '</td><td class="r num">' + (sg > 0 ? '+' : '−') + inr(t.Amount) + '</td><td class="r"><button class="btn sm" data-cedittx="' + t.ID + '">Edit</button></td></tr>'; });
+  return html + '</table></div><p class="note">+ increases your available limit (payments, refunds). − uses the limit.</p></div>';
+}
+function txModal(kind, cardId, t) {
+  var isNew = !t, c0 = card(cardId);
+  t = t || { Date: M === ym(new Date()) ? today() : M + '-01', CardID: cardId || (cards()[0] || {}).ID, Kind: kind || 'Spend', Amount: '', Party: '', Fee: '', AvailBefore: kind === 'Payment' && cardId ? Math.round(estAvail(c0) || 0) || '' : '', AvailAfter: '', Note: '' };
+  if (isNew && kind === 'Payment' && cardId) { var d = nextDue(c0), s = d && stmtFor(cardId, d); if (s) t.Amount = Math.max(0, Math.round(stmtStatus(s).left)) || ''; }
+  var net = t.Kind === 'Wallet load' && has(t.Amount) ? num(t.Amount) - num(t.Fee) : '';
+  var feeTouched = !isNew;
+  modal(isNew ? 'Add entry' : 'Edit entry',
+    field('Type', '<select class="in" name="Kind">' + KINDS.map(function (k) { return '<option value="' + k[0] + '"' + (k[0] === t.Kind ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select>') +
+    field('Card', cardSelect('CardID', t.CardID)) + field('Date', '<input class="in" type="date" name="Date" value="' + esc(t.Date) + '" required>') +
+    '<div data-for="party">' + field('Where / wallet name', '<input class="in" name="Party" list="parties" value="' + esc(t.Party) + '"><datalist id="parties">' + parties().map(function (p) { return '<option value="' + esc(p) + '">'; }).join('') + '</datalist>') + '</div>' +
+    '<div data-for="wl">' + field('Money needed (amount loaded in the wallet)', amt('Net', net)) + '</div>' +
+    '<div data-lbl="amt">' + field('Amount', amt('Amount', t.Kind === 'Wallet load' ? '' : t.Amount)) + '</div>' +
+    '<div data-for="fee"><label id="feeLbl">Fee</label>' + amt('Fee', t.Fee) + '<div class="note" id="feeHint"></div></div>' +
+    '<div data-for="pay">' + field('Available limit BEFORE paying (optional)', amt('AvailBefore', t.AvailBefore)) + field('Available limit AFTER paying (optional; also updates the card balance)', amt('AvailAfter', t.AvailAfter)) + '</div>' +
+    field('Note', '<input class="in" name="Note" value="' + esc(t.Note || '') + '">') + '<div class="preview" id="pv"></div>',
+    function (f) {
+      var k = f.Kind.value, fee = evalAmt(f.Fee.value) || 0, a;
+      if (k === 'Wallet load') { var n = evalAmt(f.Net.value); if (!(n > 0)) { toast('Enter the money needed'); return false; } a = n + fee; }
+      else { a = evalAmt(f.Amount.value); if (!(a > 0)) { toast('Enter the amount'); return false; } }
+      var o = { ID: t.ID, Date: f.Date.value, CardID: f.CardID.value, Kind: k, Amount: Math.round(a * 100) / 100, Party: k === 'Payment' ? '' : f.Party.value.trim(), Fee: k === 'Wallet load' || k === 'Cash' ? fee : '', AvailBefore: k === 'Payment' ? evalAmt(f.AvailBefore.value) : '', AvailAfter: k === 'Payment' ? evalAmt(f.AvailAfter.value) : '', Note: f.Note.value, CreatedAt: t.CreatedAt || new Date().toISOString() };
+      var c = card(o.CardID), av = estAvail(c);
+      if (isNew && kindSign(k) < 0 && av !== null && a > av && !confirm('This is more than the available ' + inr(av) + ' on ' + c.Name + '. Save anyway?')) return false;
+      save('CardTxns', o);
+      if (k === 'Payment' && has(o.AvailAfter) && o.AvailAfter !== '') { if (!c.CheckedOn || o.Date >= c.CheckedOn) save('Cards', { ID: c.ID, Available: o.AvailAfter, CheckedOn: o.Date, CheckedAt: o.CreatedAt }); }
+      toast('Saved');
+    }, isNew ? null : function () { if (!confirm('Delete this entry?')) return false; del('CardTxns', t.ID); });
+  var f = document.querySelector('.modal');
+  f.Fee.addEventListener('input', function () { feeTouched = f.Fee.value !== ''; });
+  function upd(e) {
+    var k = f.Kind.value, wl = k === 'Wallet load', fee = evalAmt(f.Fee.value) || 0, hint = '';
+    if (wl && !feeTouched && e && e.target && /^(Net|Party|CardID|Kind)$/.test(e.target.name)) {
+      var r = lastRate(f.Party.value.trim(), f.CardID.value), n0 = evalAmt(f.Net.value) || 0;
+      if (r !== null && n0) { fee = Math.round(n0 * r); f.Fee.value = fee; }
+    }
+    if (wl) { var r2 = lastRate(f.Party.value.trim(), f.CardID.value); hint = r2 !== null ? 'Last time ' + (r2 * 100).toFixed(2) + '% was charged. Filled in automatically; change it if different.' : 'Enter the charges shown by the wallet app.'; }
+    var a = wl ? (evalAmt(f.Net.value) || 0) + fee : (evalAmt(f.Amount.value) || 0);
+    f.querySelector('[data-for=wl]').classList.toggle('hidden', !wl);
+    f.querySelector('[data-lbl=amt]').classList.toggle('hidden', wl);
+    f.querySelector('[data-for=fee]').classList.toggle('hidden', !(wl || k === 'Cash'));
+    f.querySelector('[data-for=pay]').classList.toggle('hidden', k !== 'Payment');
+    f.querySelector('[data-for=party]').classList.toggle('hidden', k === 'Payment');
+    f.querySelector('[data-lbl=amt] label').textContent = k === 'Payment' ? 'Amount paid' : k === 'Cash' ? 'Amount withdrawn' : 'Amount';
+    $('feeLbl').textContent = wl ? 'Charges to load' : 'Fee charged';
+    $('feeHint').textContent = hint;
+    var c = card(f.CardID.value), av = estAvail(c), sg = kindSign(k), p = '';
+    if (wl && a) p = 'Debited from card: <b>' + inr(a) + '</b> (' + inr(a - fee) + ' + ' + inr(fee) + ' charges' + (a - fee ? ', ' + pct(fee, a - fee) : '') + ')<br>';
+    if (av !== null && a) p += 'Available on ' + esc(c.Name) + ': ' + inr(av) + ' → <b>' + inr(av + sg * a) + '</b>' + (sg < 0 && a > av ? ' ' + chip('crit', 'Not enough limit') : '');
+    if (k === 'Payment' && f.AvailBefore.value !== '' && f.AvailAfter.value !== '' && a) { var up = evalAmt(f.AvailAfter.value) - evalAmt(f.AvailBefore.value); p += '<br>Limit went up by ' + inr(up) + (a - up > 0.5 ? ' · <b>' + inr(a - up) + ' didn\'t come back</b> (interest/charges/EMI block)' : ' · full amount came back ✓'); }
+    $('pv').innerHTML = p || '—';
+  }
+  f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
+}
+function parties() { var s = {}; D.CardTxns.forEach(function (t) { if (t.Party) s[t.Party] = 1; }); ['Paytm', 'Amazon Pay', 'PhonePe', 'Mobikwik', 'Freecharge', 'CRED'].forEach(function (p) { s[p] = 1; }); return Object.keys(s); }
+
+/* ---------- Cards ---------- */
+function vCards() {
+  var html = '<div class="card"><div class="row"><h2 style="margin:0">Your cards</h2><span class="spacer"></span><button class="btn primary sm" data-addcard>+ Card</button></div><div class="scroll" style="margin-top:8px"><table><tr><th>Card</th><th>Bill day</th><th>Due day</th><th class="r">Limit</th><th class="r">Available (checked)</th><th class="r">Outstanding</th><th>Checked on</th><th></th></tr>';
+  cards(true).forEach(function (c) {
+    html += '<tr class="' + (c.Active ? '' : 'dim') + '"><td><b>' + esc(c.Name) + '</b>' + (c.Notes ? '<div class="note">' + esc(c.Notes) + '</div>' : '') + '</td><td>' + (has(c.StatementDay) ? ord(c.StatementDay) : '<span class="note">add</span>') + '</td><td>' + (has(c.DueDay) ? ord(c.DueDay) : '—') + '</td><td class="r num">' + (has(c.Limit) ? inr(c.Limit) : '<span class="note">add</span>') + '</td><td class="r num">' + inr(c.Available) + '</td><td class="r num">' + (has(c.Outstanding) ? inr(c.Outstanding) : '—') + '</td><td>' + dLabel(c.CheckedOn) + '</td><td class="r" style="white-space:nowrap"><button class="btn sm primary" data-ccheck="' + c.ID + '">Update balance</button> <button class="btn sm" data-editcard="' + c.ID + '">Edit</button></td></tr>';
+  });
+  html += '</table></div><p class="note"><b>Update balance</b> whenever you check your bank app. From then on, the app estimates the available limit using the spends and payments you add.</p></div>';
+  html += '<div class="card"><h2>Your data</h2><p>Everything is stored in your Google Sheet. Keep only the bank name and the last 4 digits here. Never store full card numbers or CVV.</p>' + (D.spreadsheetUrl ? '<a class="btn" href="' + esc(D.spreadsheetUrl) + '" target="_blank">Open Google Sheet ↗</a>' : '') + '</div>';
+  return html;
+}
+function cardModal(c) {
+  var isNew = !c; c = c || { Name: '', Bank: '', Last4: '', Limit: '', StatementDay: '', DueDay: '', Active: true, Notes: '' };
+  modal(isNew ? 'Add card' : 'Edit ' + c.Name,
+    field('Name (e.g. HDFC 4238)', '<input class="in" name="Name" value="' + esc(c.Name) + '" required>') + field('Bank', '<input class="in" name="Bank" value="' + esc(c.Bank) + '">') +
+    field('Last 4 digits only', '<input class="in" name="Last4" maxlength="4" inputmode="numeric" value="' + esc(c.Last4) + '">') + field('Total credit limit', amt('Limit', c.Limit)) +
+    field('Statement (bill) generation day', '<input class="in" type="number" min="1" max="31" name="StatementDay" value="' + esc(c.StatementDay) + '">') +
+    field('Payment due day', '<input class="in" type="number" min="1" max="31" name="DueDay" value="' + esc(c.DueDay) + '" required>') +
+    (isNew ? field('Available limit now', amt('Available', '')) : '') +
+    field('Status', '<select class="in" name="Active"><option value="1">Active</option><option value="0"' + (c.Active ? '' : ' selected') + '>Closed</option></select>') + field('Note', '<input class="in" name="Notes" value="' + esc(c.Notes || '') + '">'),
+    function (f) {
+      var o = { ID: c.ID, Name: f.Name.value.trim(), Bank: f.Bank.value, Last4: f.Last4.value.replace(/\D/g, '').slice(-4), Limit: evalAmt(f.Limit.value), StatementDay: f.StatementDay.value ? Number(f.StatementDay.value) : '', DueDay: Number(f.DueDay.value), Active: f.Active.value === '1' ? 'TRUE' : 'FALSE', Order: c.Order || D.Cards.length + 1, Notes: f.Notes.value };
+      if (isNew && f.Available.value !== '') { o.Available = evalAmt(f.Available.value); o.CheckedOn = today(); o.CheckedAt = new Date().toISOString(); }
+      save('Cards', o); var r = D.Cards.find(function (x) { return x.ID === o.ID; }); if (r) r.Active = o.Active === 'TRUE'; render();
+    });
+}
+function checkModal(c) {
+  modal('Update balance — ' + c.Name,
+    '<p class="note">Open your bank or card app and copy the numbers you see now.</p>' +
+    field('Available limit now', amt('Available', '', true)) + field('Total outstanding now (optional)', amt('Outstanding', '')) + field('Total limit (optional)', amt('Limit', c.Limit)) +
+    field('Date', '<input class="in" type="date" name="CheckedOn" value="' + today() + '">') + '<div class="preview">App estimate right now: <b>' + inr(estAvail(c)) + '</b></div>',
+    function (f) {
+      var a = evalAmt(f.Available.value); if (!(a >= 0)) { toast('Enter the available amount'); return false; }
+      save('Cards', { ID: c.ID, Available: a, Outstanding: evalAmt(f.Outstanding.value), Limit: evalAmt(f.Limit.value), CheckedOn: f.CheckedOn.value, CheckedAt: f.CheckedOn.value === today() ? new Date().toISOString() : f.CheckedOn.value + 'T23:59:59Z' }); toast('Balance updated');
+    });
+}
+
+/* ---------- Modal helpers ---------- */
+function field(l, i) { return '<label>' + esc(l) + '</label>' + i; }
+function amt(name, v, req) { return '<input class="in" name="' + name + '" inputmode="decimal" value="' + esc(has(v) ? v : '') + '"' + (req ? ' required' : '') + '>'; }
+function cardSelect(name, sel) { return '<select class="in" name="' + name + '">' + cards(true).filter(function (c) { return c.Active || c.ID === sel; }).map(function (c) { return '<option value="' + c.ID + '"' + (c.ID === sel ? ' selected' : '') + '>' + esc(c.Name) + '</option>'; }).join('') + '</select>'; }
+function modal(title, body, onSave, onDelete) {
+  var bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<form class="modal"><h2>' + esc(title) + '</h2>' + body + '<div class="actions">' + (onDelete ? '<button type="button" class="btn danger" data-del>Delete</button>' : '') + '<span class="spacer"></span><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>';
+  document.body.appendChild(bg);
+  var f = bg.querySelector('form'), close = function () { bg.remove(); };
+  bg.onclick = function (e) { if (e.target === bg) close(); };
+  bg.querySelector('[data-cancel]').onclick = close;
+  if (onDelete) bg.querySelector('[data-del]').onclick = function () { if (onDelete() !== false) close(); };
+  f.onsubmit = function (e) { e.preventDefault(); if (onSave(f) !== false) close(); };
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-ctab],[data-cfilter],[data-addstmt],[data-editstmt],[data-cpay],[data-caddemi],[data-ceditemi],[data-caddtx],[data-cedittx],[data-addcard],[data-editcard],[data-ccheck]');
+  if (!t || t.closest('.modal')) return;
+  var d = t.dataset;
+  if (d.ctab) { CTAB = d.ctab; TAB = 'cards'; window.scrollTo(0, 0); render(); }
+  else if (d.cfilter !== undefined) { FILTER = d.cfilter; render(); }
+  else if (d.addstmt !== undefined) { var c = card(d.addstmt), s = d.due && stmtFor(d.addstmt, d.due); s ? stmtModal(s) : stmtModal(null, d.addstmt || (cards()[0] || {}).ID, d.due || null); }
+  else if (d.editstmt) stmtModal(D.CardStatements.find(function (s) { return s.ID === d.editstmt; }));
+  else if (d.cpay) txModal('Payment', d.cpay);
+  else if (t.hasAttribute('data-caddemi')) emiModal();
+  else if (d.ceditemi) emiModal(D.CardEmis.find(function (x) { return x.ID === d.ceditemi; }));
+  else if (d.caddtx) txModal(d.caddtx);
+  else if (d.cedittx) txModal(null, null, D.CardTxns.find(function (x) { return x.ID === d.cedittx; }));
+  else if (t.hasAttribute('data-addcard')) cardModal();
+  else if (d.editcard) cardModal(card(d.editcard));
+  else if (d.ccheck) checkModal(card(d.ccheck));
+});
+var SUBTABS = [['over', 'Overview'], ['bills', 'Bills & interest'], ['wallet', 'Wallet loads'], ['txns', 'Transactions'], ['cards', 'Cards']];
+function view() {
+  var nav = '<div class="chips" style="margin-bottom:14px">' + SUBTABS.map(function (s) { return '<span class="chip ' + (CTAB === s[0] ? 'on' : '') + '" data-ctab="' + s[0] + '">' + s[1] + '</span>'; }).join('') +
+    '<span class="spacer"></span><span class="chip" data-caddtx="Spend">+ Card entry</span></div>';
+  return nav + ({ over: vDash, bills: vBills, wallet: vWallet, txns: vTxns, cards: vCards })[CTAB]();
+}
+function emiTotal(m) { return sum(emisFor(m), function (e) { return num(e.EMI); }); }
+function dueSoon(days) {
+  var t = today();
+  return cards().map(function (c) { var d = nextDue(c, t), s = d && stmtFor(c.ID, d), st = s ? stmtStatus(s) : null; return { c: c, due: d, days: d ? daysBetween(t, d) : 999, left: st ? st.left : null, paid: st && st.left <= 0.5 }; })
+    .filter(function (u) { return u.days <= days && !u.paid; }).sort(function (a, b) { return a.days - b.days; });
+}
+function totalAvail() { return sum(cards(), function (c) { return estAvail(c) || 0; }); }
+return { view: view, emiView: vEmis, emisFor: emisFor, emiTotal: emiTotal, emiLeft: emiLeft, card: card, dueSoon: dueSoon, totalAvail: totalAvail };
+})();
+
+/* ---------- Trends ---------- */
+function vTrend() {
+  return '<div class="card"><div class="row"><h2 style="margin:0">Up to 12 months ending ' + mLabel(M) + '</h2><span class="spacer"></span><span class="note">Future months use expected income and planned spending</span></div><div class="chart" id="chTrend" style="margin-top:8px"></div></div>' +
+    '<div class="card"><h2>Month by month</h2><div class="scroll" id="trendTbl"></div></div>' +
+    '<div class="card"><h2>Spending by category (recent months)</h2><div class="scroll" id="catTbl"></div></div>';
+}
+after.trend = function () {
+  var months = [], inc = [], sp = [], em = [], fr = [], nt = [], rows = '';
+  var st = startMonth();
+  for (var i = 11; i >= 0; i--) {
+    var m = addM(M, -i); if (m < st) continue;
+    var s = summary(m), iv = s.actual !== null ? s.actual : s.expected, spv = s.future ? Math.max(s.planned, s.spent) : s.spent;
+    var net = iv - spv - s.emi + s.fromFunds - s.toFunds;
+    months.push(m); inc.push(iv); sp.push(spv); em.push(s.emi); fr.push(s.fromFunds - s.toFunds); nt.push(net);
+    rows = '<tr><td>' + mLabel(m) + (s.future ? ' <span class="note">(projected)</span>' : '') + '</td><td class="r num">' + inr(iv) + (s.incFromActual ? '' : ' <span class="note">exp.</span>') + '</td><td class="r num">' + inr(spv) + (s.future && spv === s.planned ? ' <span class="note">plan</span>' : '') + '</td><td class="r num">' + inr(s.emi) + '</td><td class="r num">' + inr(iv - spv - s.emi) + '</td><td class="r num">' + (s.fromFunds - s.toFunds ? inr(s.fromFunds - s.toFunds) : '—') + '</td><td class="r num"><b>' + inr(net) + '</b></td></tr>' + rows;
+  }
+  barChart($('chTrend'), months, [{ name: 'Income', color: 'var(--s-income)', values: inc }, { name: 'Spending', color: 'var(--s-spend)', values: sp }, { name: 'EMI', color: 'var(--s-emi)', values: em }]);
+  $('trendTbl').innerHTML = '<table><tr><th>Month</th><th class="r">Income</th><th class="r">Spending</th><th class="r">EMI</th><th class="r">Surplus / deficit</th><th class="r">From savings (net)</th><th class="r">Net</th></tr>' + rows +
+    '<tr class="total"><td>12-month total</td><td class="r num">' + inr(sum(inc)) + '</td><td class="r num">' + inr(sum(sp)) + '</td><td class="r num">' + inr(sum(em)) + '</td><td class="r num">' + inr(sum(inc) - sum(sp) - sum(em)) + '</td><td class="r num">' + inr(sum(fr)) + '</td><td class="r num">' + inr(sum(nt)) + '</td></tr></table>';
+  var m6 = months.filter(function (m) { return m <= ym(new Date()); }).slice(-6), names = cats(true).map(function (c) { return c.Name; });
+  var h = '<table><tr><th>Category</th>' + m6.map(function (m) { return '<th class="r">' + mLabel(m, true) + '</th>'; }).join('') + '<th class="r">Avg</th></tr>';
+  names.forEach(function (n) {
+    var vals = m6.map(function (m) { return sum(D.Expenses.filter(function (e) { return e.Month === m && e.Category === n; }), function (e) { return num(e.Amount); }); });
+    if (!sum(vals)) return;
+    h += '<tr><td>' + esc(n) + '</td>' + vals.map(function (v) { return '<td class="r num">' + (v ? inr(v, true) : '—') + '</td>'; }).join('') + '<td class="r num">' + inr(sum(vals) / m6.length, true) + '</td></tr>';
+  });
+  $('catTbl').innerHTML = h + '</table>';
+};
+
+/* ---------- Settings ---------- */
+function vSet() {
+  var html = '<div class="grid g2"><div class="card"><div class="row"><h2 style="margin:0">People / income sources</h2><span class="spacer"></span><button class="btn sm" data-add="People">+ Add</button></div><table style="margin-top:8px"><tr><th>Name</th><th class="r">Expected monthly</th><th>Active</th><th></th></tr>';
+  D.People.slice().sort(function (a, b) { return num(a.Order) - num(b.Order); }).forEach(function (p) {
+    html += '<tr class="' + (p.Active ? '' : 'dim') + '"><td>' + esc(p.Name) + '</td><td class="r num">' + inr(p.ExpectedIncome) + '</td><td>' + (p.Active ? 'Yes' : 'No') + '</td><td class="r"><button class="btn sm" data-edit="People" data-name="' + esc(p.Name) + '">Edit</button></td></tr>';
+  });
+  html += '</table></div><div class="card"><div class="row"><h2 style="margin:0">Banks</h2><span class="spacer"></span><button class="btn sm" data-add="Banks">+ Add</button></div><table style="margin-top:8px"><tr><th>Bank</th><th class="r">Balance</th><th>Updated</th><th></th></tr>';
+  D.Banks.forEach(function (b) {
+    html += '<tr><td>' + esc(b.Name) + '</td><td class="r num">' + inr(b.CurrentBalance) + '</td><td class="note">' + esc(b.UpdatedOn || '—') + '</td><td class="r"><button class="btn sm" data-edit="Banks" data-name="' + esc(b.Name) + '">Edit</button></td></tr>';
+  });
+  html += '</table></div></div>';
+  html += '<div class="card"><div class="row"><h2 style="margin:0">Spending categories (default monthly plan)</h2><span class="spacer"></span><button class="btn sm" data-add="Categories">+ Add</button></div><table style="margin-top:8px"><tr><th>Category</th><th class="r">Default planned</th><th>Active</th><th></th></tr>';
+  cats(true).forEach(function (c) {
+    html += '<tr class="' + (c.Active ? '' : 'dim') + '"><td>' + esc(c.Name) + '</td><td class="r num">' + inr(c.DefaultPlanned) + '</td><td>' + (c.Active ? 'Yes' : 'No') + '</td><td class="r"><button class="btn sm" data-edit="Categories" data-name="' + esc(c.Name) + '">Edit</button></td></tr>';
+  });
+  html += '<tr class="total"><td>Total</td><td class="r num">' + inr(sum(cats(), function (c) { return num(c.DefaultPlanned); })) + '</td><td></td><td></td></tr></table>' +
+    '<p class="note">Turn a category off (Active = No) instead of deleting it, so older months keep their history.</p></div>';
+  html += '<div class="card"><h2>Credit cards</h2><table><tr><td>Count card EMIs in the monthly surplus / deficit</td><td class="r"><select class="in" data-appsetting="CountCardEmis"><option value="No">No (loans only)</option><option value="Yes"' + (countCardEmis() ? ' selected' : '') + '>Yes (loans + cards)</option></select></td></tr></table>' +
+    '<p class="note">Either way, the EMIs tab shows loan EMIs, card EMIs and the combined total.</p></div>';
+  html += '<div class="card"><h2>Your data</h2><p>Everything is stored in your Google Sheet in Google Drive. You can open it any time, and Google keeps version history (File → Version history).</p>' +
+    (D.spreadsheetUrl ? '<a class="btn" href="' + esc(D.spreadsheetUrl) + '" target="_blank">Open Google Sheet ↗</a>' : '') + '</div>';
+  return html;
+}
+function settingModal(table, name) {
+  var rec = name ? D[table].find(function (r) { return r.Name === name; }) : null;
+  var isNew = !rec; rec = rec || { Name: '', Active: true };
+  var extra = table === 'People' ? field('Expected monthly income', '<input class="in" name="V" inputmode="decimal" value="' + esc(rec.ExpectedIncome || '') + '">')
+            : table === 'Categories' ? field('Default planned per month', '<input class="in" name="V" inputmode="decimal" value="' + esc(rec.DefaultPlanned || '') + '">')
+            : field('Current balance', '<input class="in" name="V" inputmode="decimal" value="' + esc(rec.CurrentBalance === '' ? '' : rec.CurrentBalance) + '">');
+  var active = table === 'Banks' ? '' : field('Active', '<select class="in" name="Active"><option value="1">Yes</option><option value="0"' + (rec.Active ? '' : ' selected') + '>No</option></select>');
+  modal((isNew ? 'Add ' : 'Edit ') + { People: 'person', Categories: 'category', Banks: 'bank' }[table],
+    field('Name', '<input class="in" name="Name" value="' + esc(rec.Name) + '" required>') + extra + active,
+    function (f) {
+      var nm = f.Name.value.trim(); if (!nm) return false;
+      if ((isNew || nm !== name) && D[table].some(function (r) { return r.Name === nm; })) { toast('That name already exists'); return false; }
+      var o = { Name: nm };
+      if (!isNew && nm !== name) o._orig = name;
+      var v = f.V.value === '' ? '' : evalAmt(f.V.value);
+      if (table === 'People') { o.ExpectedIncome = v; o.Active = f.Active.value === '1' ? 'TRUE' : 'FALSE'; o.Order = rec.Order || D.People.length + 1; }
+      if (table === 'Categories') { o.DefaultPlanned = v; o.Active = f.Active.value === '1' ? 'TRUE' : 'FALSE'; o.Order = rec.Order || D.Categories.length + 1; }
+      if (table === 'Banks') { o.CurrentBalance = v; o.UpdatedOn = today(); }
+      save(table, o).then(function () {});
+      // keep local Active as boolean
+      var r = D[table].find(function (x) { return x.Name === nm; }); if (r && 'Active' in o) { r.Active = o.Active === 'TRUE'; render(); }
+    });
+}
+
+/* ======================= Modal helpers ======================= */
+function field(label, input) { return '<label>' + esc(label) + '</label>' + input; }
+function modal(title, body, onSave, onDelete) {
+  var bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<form class="modal"><h2>' + esc(title) + '</h2>' + body + '<div class="actions">' + (onDelete ? '<button type="button" class="btn danger" data-del>Delete</button>' : '') + '<span class="spacer"></span><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>';
+  document.body.appendChild(bg);
+  var f = bg.querySelector('form'), close = function () { bg.remove(); };
+  bg.onclick = function (e) { if (e.target === bg) close(); };
+  bg.querySelector('[data-cancel]').onclick = close;
+  if (onDelete) bg.querySelector('[data-del]').onclick = function () { if (onDelete() !== false) close(); };
+  f.onsubmit = function (e) { e.preventDefault(); if (onSave(f) !== false) close(); };
+  var first = f.querySelector('[autofocus]') || f.querySelector('input'); first && first.focus();
+}
+
+/* ======================= Charts (plain SVG) ======================= */
+function niceMax(v) { if (v <= 0) return 1; var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; }
+function shortInr(v) { return v >= 1e7 ? (v / 1e7).toFixed(1).replace(/\.0$/, '') + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1).replace(/\.0$/, '') + 'L' : v >= 1e3 ? Math.round(v / 1e3) + 'k' : String(Math.round(v)); }
+function axes(W, H, pad, max) {
+  var g = '';
+  for (var i = 0; i <= 4; i++) {
+    var y = pad.t + (H - pad.t - pad.b) * (1 - i / 4);
+    g += '<line x1="' + pad.l + '" x2="' + (W - pad.r) + '" y1="' + y + '" y2="' + y + '" stroke="var(--grid)" stroke-width="1"/>' +
+         '<text x="' + (pad.l - 6) + '" y="' + (y + 4) + '" text-anchor="end">₹' + shortInr(max * i / 4) + '</text>';
+  }
+  return g;
+}
+function xLabels(months, W, pad, H, bw) {
+  var n = months.length, step = Math.ceil(n / Math.max(1, Math.floor((W - pad.l - pad.r) / 46)));
+  return months.map(function (m, i) { if (i % step) return ''; var x = pad.l + bw * (i + .5); return '<text x="' + x + '" y="' + (H - 6) + '" text-anchor="middle">' + mLabel(m, true) + '</text>'; }).join('');
+}
+function barChart(el, months, series, opt) {
+  opt = opt || {};
+  var W = Math.max(300, el.clientWidth || 600), H = 230, pad = { l: 46, r: 8, t: 10, b: 24 };
+  var max = niceMax(Math.max.apply(null, series.reduce(function (a, s) { return a.concat(s.values); }, [0])));
+  var bw = (W - pad.l - pad.r) / months.length, ih = H - pad.t - pad.b, k = series.length;
+  var inner = Math.min(opt.single ? bw - 2 : (bw * .78) / k, 22), gap = 2;
+  var svg = axes(W, H, pad, max);
+  months.forEach(function (m, i) {
+    var groupW = inner * k + gap * (k - 1), x0 = pad.l + bw * i + (bw - groupW) / 2;
+    series.forEach(function (s, j) {
+      var v = s.values[i], h = Math.max(0, v / max * ih), x = x0 + j * (inner + gap), y = pad.t + ih - h, r = Math.min(4, inner / 2, h);
+      if (h > 0) svg += '<path d="M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + inner - r) + 'Q' + (x + inner) + ',' + y + ' ' + (x + inner) + ',' + (y + r) + 'V' + (y + h) + 'Z" fill="' + s.color + '"/>';
+    });
+    svg += '<rect x="' + (pad.l + bw * i) + '" y="' + pad.t + '" width="' + bw + '" height="' + ih + '" fill="transparent" data-i="' + i + '"/>';
+  });
+  svg += '<line x1="' + pad.l + '" x2="' + (W - pad.r) + '" y1="' + (pad.t + ih) + '" y2="' + (pad.t + ih) + '" stroke="var(--muted)" stroke-width="1"/>';
+  svg += xLabels(months, W, pad, H, bw);
+  el.innerHTML = (k > 1 ? '<div class="legend">' + series.map(function (s) { return '<span style="--c:' + s.color + '">' + s.name + '</span>'; }).join('') + '</div>' : '') +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(series.map(function (s) { return s.name; }).join(', ')) + ' by month">' + svg + '</svg>';
+  hover(el, function (i) { return '<b>' + mLabel(months[i]) + '</b>' + series.map(function (s) { return '<div><span class="sw" style="background:' + s.color + '"></span>' + s.name + ': ' + inr(s.values[i]) + '</div>'; }).join(''); });
+}
+function areaChart(el, months, vals, color, name) {
+  var W = Math.max(300, el.clientWidth || 600), H = 230, pad = { l: 46, r: 8, t: 10, b: 24 };
+  var max = niceMax(Math.max.apply(null, vals.concat([0]))), bw = (W - pad.l - pad.r) / months.length, ih = H - pad.t - pad.b;
+  var pts = vals.map(function (v, i) { return [pad.l + bw * (i + .5), pad.t + ih - v / max * ih]; });
+  var svg = axes(W, H, pad, max);
+  if (pts.length) {
+    var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('');
+    svg += '<path d="' + line + 'L' + pts[pts.length - 1][0] + ',' + (pad.t + ih) + 'L' + pts[0][0] + ',' + (pad.t + ih) + 'Z" fill="' + color + '" opacity=".14"/>';
+    svg += '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2"/>';
+  }
+  months.forEach(function (m, i) { svg += '<rect x="' + (pad.l + bw * i) + '" y="' + pad.t + '" width="' + bw + '" height="' + ih + '" fill="transparent" data-i="' + i + '"/>'; });
+  svg += '<line class="xh" x1="0" x2="0" y1="' + pad.t + '" y2="' + (pad.t + ih) + '" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/><circle class="dot" r="4" fill="' + color + '" stroke="var(--surface)" stroke-width="2" style="display:none"/>';
+  svg += '<line x1="' + pad.l + '" x2="' + (W - pad.r) + '" y1="' + (pad.t + ih) + '" y2="' + (pad.t + ih) + '" stroke="var(--muted)"/>' + xLabels(months, W, pad, H, bw);
+  el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + name + ' by month">' + svg + '</svg>';
+  var xh = el.querySelector('.xh'), dot = el.querySelector('.dot');
+  hover(el, function (i) {
+    xh.setAttribute('x1', pts[i][0]); xh.setAttribute('x2', pts[i][0]); xh.style.display = ''; dot.setAttribute('cx', pts[i][0]); dot.setAttribute('cy', pts[i][1]); dot.style.display = '';
+    return '<b>' + mLabel(months[i]) + '</b>' + name + ': ' + inr(vals[i]);
+  }, function () { xh.style.display = 'none'; dot.style.display = 'none'; });
+}
+function hover(el, html, leave) {
+  var tip = document.createElement('div'); tip.className = 'tip'; tip.style.display = 'none'; el.appendChild(tip);
+  el.querySelectorAll('rect[data-i]').forEach(function (r) {
+    var show = function (e) {
+      tip.innerHTML = html(+r.getAttribute('data-i')); tip.style.display = '';
+      var b = el.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - b.left;
+      tip.style.left = Math.min(Math.max(0, x + 12), b.width - tip.offsetWidth) + 'px'; tip.style.top = '8px';
+    };
+    r.addEventListener('mousemove', show); r.addEventListener('touchstart', show, { passive: true });
+  });
+  el.addEventListener('mouseleave', function () { tip.style.display = 'none'; leave && leave(); });
+}
+
+/* ======================= Events ======================= */
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-tab],[data-goto],[data-filter],[data-editexp],[data-editloan],[data-add],[data-edit],[data-fundtx],[data-editfund],[data-edittx]');
+  if (!t) return;
+  if (t.dataset.tab || t.dataset.goto) { TAB = t.dataset.tab || t.dataset.goto; window.scrollTo(0, 0); render(); }
+  else if (t.hasAttribute('data-filter')) { expFilter = t.dataset.filter; render(); }
+  else if (t.dataset.editexp) expenseModal(D.Expenses.find(function (x) { return x.ID === t.dataset.editexp; }));
+  else if (t.dataset.editloan) loanModal(D.Loans.find(function (x) { return x.ID === t.dataset.editloan; }));
+  else if (t.dataset.add) settingModal(t.dataset.add);
+  else if (t.dataset.edit) settingModal(t.dataset.edit, t.dataset.name);
+  else if (t.dataset.fundtx) fundTxModal(t.dataset.fundtx, t.dataset.fund, t.dataset.amt);
+  else if (t.dataset.editfund) fundModal(D.Funds.find(function (x) { return x.Name === t.dataset.editfund; }));
+  else if (t.dataset.edittx) fundTxModal(null, null, null, D.FundTxns.find(function (x) { return x.ID === t.dataset.edittx; }));
+});
+document.addEventListener('change', function (e) {
+  var t = e.target, d = t.dataset;
+  if (d.emipaid) {
+    var l = D.Loans.find(function (x) { return x.ID === d.emipaid; });
+    if (t.checked) save('EmiPayments', { Month: M, LoanID: l.ID, PaidOn: today(), Amount: num(l.EMI) });
+    else del('EmiPayments', { Month: M, LoanID: l.ID });
+  } else if (d.bankbal !== undefined) {
+    save('Banks', { Name: d.bankbal, CurrentBalance: t.value === '' ? '' : evalAmt(t.value), UpdatedOn: today() });
+  } else if (d.inc) {
+    var cur = incomeFor(M).find(function (i) { return i.name === d.person; });
+    var o = { Month: M, Person: d.person, Expected: cur.expected, Actual: cur.actual === null ? '' : cur.actual };
+    o[d.inc] = t.value === '' ? '' : evalAmt(t.value);
+    save('Income', o);
+  } else if (d.plan) {
+    save('Budgets', { Month: M, Category: d.plan, Planned: t.value === '' ? 0 : evalAmt(t.value) });
+  }
+});
+document.addEventListener('click', function (e) { var t = e.target.closest('[data-etab]'); if (t && !t.closest('.modal')) { ETAB = t.dataset.etab; render(); } });
+document.addEventListener('change', function (e) { var k = e.target.dataset && e.target.dataset.appsetting; if (k) save('AppSettings', { Key: k, Value: e.target.value }); });
+$('prevM').onclick = function () { M = addM(M, -1); expFilter = ''; render(); };
+$('nextM').onclick = function () { M = addM(M, 1); expFilter = ''; render(); };
+$('todayM').onclick = function () { M = ym(new Date()); render(); };
+$('mLabel').onclick = function () { var p = $('mPick'); p.showPicker ? p.showPicker() : p.click(); };
+$('mPick').onchange = function () { if (this.value) { M = this.value; render(); } };
+$('fab').onclick = function () { expenseModal(); };
+var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(render, 200); });
+
+load();
+</script>
+</body>
+</html>
