@@ -298,6 +298,31 @@ th, td { border-bottom: .5px solid var(--sep); }
 .lock .links button { border: 0; background: none; color: var(--accent); font-size: 15px; cursor: pointer; }
 .hide { display: none !important; }
 
+
+/* ---- alerts + bank planner ---- */
+.ffal { background: var(--surface, #fff); border-radius: 16px; padding: 12px 14px 6px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border, rgba(0,0,0,.06)); }
+.ffal-h { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.ffal-n { background: var(--critical, #d03b3b); color: #fff; font-size: 12px; border-radius: 10px; padding: 1px 8px; }
+.ffal-x { margin-left: auto; border: 0; background: none; color: var(--muted, #888); font-size: 13px; cursor: pointer; }
+.ffal-i { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border, rgba(0,0,0,.06)); }
+.ffal-i:first-of-type { border-top: 0; }
+.ffal-ic { font-size: 20px; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface-2, #f2f2f5); flex: none; }
+.ffal-i.crit .ffal-ic { background: rgba(208,59,59,.14); } .ffal-i.warn .ffal-ic { background: rgba(250,178,25,.2); }
+.ffal-t { flex: 1; min-width: 0; cursor: pointer; } .ffal-t b { display: block; font-size: 14.5px; } .ffal-t span { font-size: 12.5px; color: var(--text-2, #666); }
+.ffal-i.crit .ffal-t b { color: var(--critical, #d03b3b); }
+.ffal-d { border: 0; background: none; color: var(--muted, #999); font-size: 14px; padding: 4px 6px; cursor: pointer; }
+.bp-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bp-big { font-size: 28px; font-weight: 800; letter-spacing: -.4px; } .bp-mid { font-size: 20px; font-weight: 700; }
+.bp-name { font-size: 17px; flex: 1; }
+.bp-pill { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 10px; background: var(--surface-2, #eee); color: var(--text-2, #555); }
+.bp-pill.crit { background: rgba(208,59,59,.13); color: var(--critical, #d03b3b); } .bp-pill.good { background: rgba(12,163,12,.13); color: var(--good, #0ca30c); } .bp-pill.warn { background: rgba(250,178,25,.2); color: #9a6b00; }
+.bp-in { max-width: 170px; text-align: right; font-weight: 700; font-size: 16px; }
+.bp-sel { max-width: 150px; }
+.bp-t { width: 100%; border-collapse: collapse; margin: 10px 0 6px; font-size: 14px; }
+.bp-t th, .bp-t td { padding: 7px 4px; border-bottom: 1px solid var(--border, rgba(0,0,0,.07)); text-align: left; }
+.bp-t th { font-size: 12px; color: var(--muted, #888); font-weight: 600; } .bp-t .r { text-align: right; }
+.bp-t tr.short td { background: rgba(208,59,59,.06); } .bp-t tr.total td { font-weight: 700; border-bottom: 0; }
+.tabbadge { position: absolute; top: 2px; margin-left: 14px; background: var(--critical, #ff3b30); color: #fff; font-size: 10.5px; font-weight: 700; min-width: 17px; height: 17px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
 </style>
 </head>
 <body>
@@ -1557,10 +1582,166 @@ var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = s
 load();
 </script>
 <script>
+/* ======================= Bank planner + in-app alerts (shared by phone and PC) ======================= */
+(function () {
+  var MS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dIn(m, d) { var p = m.split('-'), last = new Date(+p[0], +p[1], 0).getDate(); return m + '-' + ('0' + Math.min(num(d) || 1, last)).slice(-2); }
+  function days(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5); }
+  function sd(d) { var x = new Date(d + 'T00:00:00'); return x.getDate() + ' ' + MS[x.getMonth()]; }
+  function when(n) { return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days'; }
+  function payFrom(id) { return appSetting('PayFrom_' + id); }
+  function activeCards() { return D.Cards.filter(function (c) { return c.Active !== false && c.DueDay !== '' && c.DueDay != null; }); }
+  // what is still to pay on a card bill due on `due` (entered bill, else the card's EMIs as an estimate)
+  function cardBill(c, due) {
+    var st = D.CardStatements.find(function (s) { return s.CardID === c.ID && s.DueDate === due; });
+    if (st) {
+      var nxt = D.CardStatements.filter(function (x) { return x.CardID === c.ID && x.StatementDate > st.StatementDate; }).sort(function (a, b) { return String(a.StatementDate).localeCompare(String(b.StatementDate)); })[0];
+      var from = st.StatementDate || st.Month + '-01', to = nxt ? nxt.StatementDate : '9999';
+      var paid = sum(D.CardTxns.filter(function (t) { return t.CardID === c.ID && t.Kind === 'Payment' && t.Date >= from && t.Date < to; }), function (t) { return num(t.Amount); });
+      return { amt: Math.max(0, num(st.TotalDue) - paid), est: false, entered: true };
+    }
+    return { amt: sum(CC.emisFor(due.slice(0, 7), c.ID), function (e) { return num(e.EMI); }), est: true, entered: false };
+  }
+  /** Every bank: balance, unpaid debits from today to the end of next month, and how much to add by when. */
+  function bankPlan() {
+    var t = today(), cur = t.slice(0, 7), nxt = addM(cur, 1), end = dIn(nxt, 31), map = {};
+    function bank(n) { if (!map[n]) { var b = D.Banks.find(function (x) { return x.Name === n; }) || {}; map[n] = { bank: n, balance: b.CurrentBalance === '' || b.CurrentBalance == null ? null : num(b.CurrentBalance), updated: b.UpdatedOn || '', ev: [] }; } return map[n]; }
+    D.Banks.forEach(function (b) { bank(b.Name); });
+    [cur, nxt].forEach(function (m) {
+      loansFor(m).forEach(function (l) {
+        if (isPaid(l, m)) return;
+        var d = dIn(m, l.DueDay), late = d < t; if (late) { if (m !== cur) return; }
+        bank(l.Bank || 'Other').ev.push({ date: late ? t : d, due: d, what: l.Name + ' EMI', amt: num(l.EMI), late: late, kind: 'emi' });
+      });
+    });
+    var unassigned = [];
+    activeCards().forEach(function (c) {
+      [dIn(cur, c.DueDay), dIn(nxt, c.DueDay)].forEach(function (d) {
+        if (d < t || d > end) return;
+        var b = cardBill(c, d); if (b.amt <= 0.5) return;
+        var e = { date: d, due: d, what: c.Name + ' card bill', amt: b.amt, est: b.est, entered: b.entered, kind: 'card', card: c };
+        var pf = payFrom(c.ID); if (pf) bank(pf).ev.push(e); else unassigned.push(e);
+      });
+    });
+    var list = Object.keys(map).map(function (k) {
+      var b = map[k], cum = 0, prev = 0;
+      b.ev.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : y.amt - x.amt; });
+      b.ev.forEach(function (e) { cum += e.amt; e.cum = cum; var sf = b.balance === null ? null : Math.max(0, cum - b.balance); e.add = sf === null ? null : sf - prev; e.short = sf; if (sf !== null) prev = sf; });
+      b.total = cum; b.add = b.balance === null ? null : Math.max(0, cum - b.balance);
+      b.firstShort = b.ev.find(function (e) { return e.add > 0.5; }) || null;
+      b.stale = b.updated ? days(b.updated, t) : null;
+      b.status = !b.ev.length ? 'none' : b.balance === null ? 'enter' : b.add > 0.5 ? 'add' : 'ok';
+      return b;
+    }).filter(function (b) { return b.ev.length || b.balance !== null; })
+      .sort(function (a, b) { var o = { add: 0, enter: 1, ok: 2, none: 3 }; return o[a.status] - o[b.status] || (a.firstShort ? a.firstShort.date : '9') .localeCompare(b.firstShort ? b.firstShort.date : '9') || b.total - a.total; });
+    return { banks: list, unassigned: unassigned.sort(function (a, b) { return a.date < b.date ? -1 : 1; }), end: end };
+  }
+  window.bankPlan = bankPlan;
+
+  /* ---------- alerts ---------- */
+  function dismissed() { try { return JSON.parse(localStorage.getItem('ff_dis') || '{}'); } catch (e) { return {}; } }
+  function appAlerts(all) {
+    var t = today(), cur = t.slice(0, 7), out = [], plan = bankPlan();
+    // money to add in banks
+    var enter = [];
+    plan.banks.forEach(function (b) {
+      if (b.status === 'add') {
+        var e = b.firstShort, n = days(t, e.date); if (n > 10) return;
+        out.push({ id: 'add_' + b.bank + '_' + e.date + '_' + Math.round(e.short), lvl: n <= 1 ? 'crit' : n <= 5 ? 'warn' : 'info', ic: '🏦', go: 'banks',
+          t: 'Add ' + inr(e.short) + ' to ' + b.bank + ' by ' + (n <= 0 ? 'today' : n === 1 ? 'tomorrow' : sd(e.date)), s: 'Balance ' + inr(b.balance) + ' · ' + e.what + ' ' + inr(e.amt) + ' on ' + sd(e.due) + (b.add > e.short + 0.5 ? ' · ' + inr(b.add) + ' needed in all till ' + sd(plan.end) : '') });
+      } else if (b.status === 'enter' && days(t, b.ev[0].date) <= 10) enter.push(b);
+      if (b.ev.length && b.stale !== null && b.stale >= 7 && b.status !== 'enter' && days(t, b.ev[0].date) <= 10)
+        out.push({ id: 'stale_' + b.bank + '_' + b.updated, lvl: 'info', ic: '🕒', go: 'banks', t: b.bank + ' balance is ' + b.stale + ' days old', s: 'Update it so the “add” amounts stay right' });
+    });
+    if (enter.length) { var soon = enter.map(function (b) { return b.ev[0].date; }).sort()[0], n3 = days(t, soon);
+      out.push({ id: 'enter_' + enter.map(function (b) { return b.bank; }).join('_') + '_' + soon, lvl: n3 <= 2 ? 'warn' : 'info', ic: '✏️', go: 'banks', t: 'Enter balance' + (enter.length > 1 ? 's' : '') + ': ' + enter.map(function (b) { return b.bank; }).join(', '), s: inr(sum(enter, function (b) { return sum(b.ev.filter(function (x) { return x.date <= addDays(t, 10); }), function (x) { return x.amt; }); })) + ' debits in the next 10 days · first on ' + sd(soon) + ' · so the app can tell you what to add' }); }
+    // EMIs today / tomorrow and not-ticked ones
+    [0, 1].forEach(function (k) {
+      var d = addDays(t, k), m = d.slice(0, 7), ls = loansFor(m).filter(function (l) { return dIn(m, l.DueDay) === d && !isPaid(l, m); });
+      if (ls.length) out.push({ id: 'emi_' + d, lvl: k ? 'warn' : 'crit', ic: '📅', go: 'loans', t: ls.length + ' EMI' + (ls.length > 1 ? 's' : '') + ' debit ' + (k ? 'tomorrow' : 'today') + ' · ' + inr(sum(ls, function (l) { return num(l.EMI); })), s: ls.map(function (l) { return l.Name + ' (' + l.Bank + ')'; }).join(', ') });
+    });
+    var late = loansFor(cur).filter(function (l) { var d = dIn(cur, l.DueDay); return d < t && !isPaid(l, cur); });
+    if (late.length) out.push({ id: 'late_' + t + '_' + late.length, lvl: 'info', ic: '☑️', go: 'dash', t: late.length + ' EMI' + (late.length > 1 ? 's' : '') + ' not ticked as paid', s: late.map(function (l) { return l.Name; }).join(', ') + ' · tick them in Month details' });
+    // card bills within 3 days
+    activeCards().forEach(function (c) {
+      var d = dIn(cur, c.DueDay); if (d < t) d = dIn(addM(cur, 1), c.DueDay);
+      var n = days(t, d); if (n > 3) return; var b = cardBill(c, d); if (b.entered && b.amt <= 0.5) return;
+      out.push({ id: 'card_' + c.ID + '_' + d, lvl: n <= 1 ? 'crit' : 'warn', ic: '💳', go: 'cards', t: c.Name + ' bill due ' + when(n), s: b.entered ? inr(b.amt) + ' to pay · due ' + sd(d) : 'Bill amount not entered · due ' + sd(d) });
+    });
+    // card bills with no paying bank chosen
+    if (plan.unassigned.some(function (e) { return days(t, e.date) <= 10; }))
+      out.push({ id: 'assign_' + t.slice(0, 7), lvl: 'info', ic: '🔗', go: 'banks', t: 'Choose which bank pays each card', s: plan.unassigned.filter(function (e) { return days(t, e.date) <= 10; }).map(function (e) { return e.card.Name; }).join(', ') + ' · so the bank planner includes them' });
+    // over budget
+    var over = budgetFor(cur).filter(function (b) { return b.planned > 0 && b.spent > b.planned; });
+    if (over.length) out.push({ id: 'budget_' + cur + '_' + over.map(function (b) { return b.name + Math.round(b.spent); }).join(''), lvl: 'warn', ic: '⚠️', go: 'plan', t: 'Over budget: ' + over.map(function (b) { return b.name; }).join(', '), s: over.map(function (b) { return b.name + ' +' + inr(b.spent - b.planned); }).join(' · ') });
+    // start of the month summary
+    if (+t.slice(8) <= 3) { var lm = addM(cur, -1), s = summary(lm); out.push({ id: 'month_' + lm, lvl: 'info', ic: '📊', go: 'trend', t: mLabel(lm) + ': ' + (s.surplus < 0 ? 'deficit ' : 'surplus ') + inr(Math.abs(s.surplus)), s: 'Income ' + inr(s.actual !== null ? s.actual : s.expected) + ' · spent ' + inr(s.spent) + ' · EMIs ' + inr(s.emi) }); }
+    var dis = dismissed(), rank = { crit: 0, warn: 1, info: 2 };
+    return out.filter(function (a) { return all || !dis[a.id]; }).sort(function (a, b) { return rank[a.lvl] - rank[b.lvl]; });
+  }
+  window.appAlerts = appAlerts;
+  window.alertsHtml = function () {
+    var a = appAlerts(); if (!a.length) return '';
+    return '<div class="ffal"><div class="ffal-h">🔔 Alerts <span class="ffal-n">' + a.length + '</span><button class="ffal-x" data-disall>Dismiss all</button></div>' + a.map(function (x) {
+      return '<div class="ffal-i ' + x.lvl + '"><span class="ffal-ic">' + x.ic + '</span><span class="ffal-t" data-goto="' + x.go + '"><b>' + esc(x.t) + '</b><span>' + esc(x.s) + '</span></span><button class="ffal-d" data-dis="' + esc(x.id) + '" aria-label="Dismiss">✕</button></div>';
+    }).join('') + '</div>';
+  };
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-dis],[data-disall]'); if (!t) return;
+    e.stopPropagation(); var d = dismissed();
+    if (t.hasAttribute('data-disall')) appAlerts().forEach(function (a) { d[a.id] = today(); }); else d[t.dataset.dis] = today();
+    Object.keys(d).forEach(function (k) { if (d[k] < addDays(today(), -60)) delete d[k]; });
+    try { localStorage.setItem('ff_dis', JSON.stringify(d)); } catch (err) {}
+    render();
+  }, true);
+  function addDays(s, n) { var x = new Date(s + 'T00:00:00'); x.setDate(x.getDate() + n); return ym(x) + '-' + ('0' + x.getDate()).slice(-2); }
+
+  /* ---------- Bank planner page ---------- */
+  function vBanks() {
+    var p = bankPlan(), t = today(), names = D.Banks.map(function (b) { return b.Name; });
+    var need = sum(p.banks, function (b) { return b.add || 0; }), missing = p.banks.filter(function (b) { return b.status === 'enter'; }).length;
+    var h = '<div class="card bp-sum"><div class="bp-row"><div><div class="note">To add across banks (till ' + sd(p.end) + ')</div><div class="bp-big" style="color:' + (need > 0.5 ? 'var(--critical)' : 'var(--good)') + '">' + (need > 0.5 ? inr(need) : 'Nothing ✓') + '</div></div>' +
+      '<div style="text-align:right"><div class="note">Upcoming debits</div><div class="bp-mid">' + inr(sum(p.banks, function (b) { return b.total; })) + '</div></div></div>' +
+      '<p class="note" style="margin:8px 0 0">Unpaid EMIs and card bills from today to ' + sd(p.end) + ', against the balance you enter. ' + (missing ? '<b>' + missing + ' bank' + (missing > 1 ? 's need' : ' needs') + ' a balance.</b>' : 'Type a new balance any time — the “add” amounts update straight away.') + '</p></div>';
+    p.banks.forEach(function (b) {
+      var pill = b.status === 'add' ? '<span class="bp-pill crit">Add ' + inr(b.firstShort.short) + ' by ' + sd(b.firstShort.date) + '</span>' : b.status === 'enter' ? '<span class="bp-pill warn">Enter balance</span>' : b.status === 'ok' ? '<span class="bp-pill good">Covered ✓</span>' : '<span class="bp-pill">No debits</span>';
+      h += '<div class="card bp-bank"><div class="bp-row"><b class="bp-name">🏦 ' + esc(b.bank) + '</b>' + pill + '</div>' +
+        '<div class="bp-row" style="margin-top:8px"><label class="note" style="flex:1">Current balance' + (b.updated ? ' · updated ' + (b.stale === 0 ? 'today' : b.stale === 1 ? 'yesterday' : b.stale + ' days ago') : '') + (b.stale >= 7 ? ' ⚠️' : '') + '</label>' +
+        '<input class="in bp-in num" data-bankbal="' + esc(b.bank) + '" value="' + (b.balance === null ? '' : b.balance) + '" placeholder="₹ balance" inputmode="decimal"></div>';
+      if (b.ev.length) {
+        h += '<table class="bp-t"><tr><th>Date</th><th>Debit</th><th class="r">Amount</th><th class="r">Add</th></tr>' + b.ev.map(function (e) {
+          return '<tr class="' + (e.add > 0.5 ? 'short' : '') + '"><td>' + (e.late ? '<span style="color:var(--critical)">Overdue</span>' : sd(e.date)) + '</td><td>' + esc(e.what) + (e.est ? ' <span class="note">(est. EMIs)</span>' : '') + (e.kind === 'card' && !e.entered ? ' <span class="note">bill not entered</span>' : '') + '</td><td class="r num">' + inr(e.amt) + '</td><td class="r num">' + (e.add === null ? '—' : e.add > 0.5 ? '<b>+' + inr(e.add) + '</b>' : '✓') + '</td></tr>';
+        }).join('') + '<tr class="total"><td></td><td>Total</td><td class="r num">' + inr(b.total) + '</td><td class="r num">' + (b.add === null ? '—' : b.add > 0.5 ? inr(b.add) : '✓') + '</td></tr></table>' +
+          (b.balance !== null ? '<div class="note">' + (b.add > 0.5 ? 'After adding ' + inr(b.add) + ', ' + esc(b.bank) + ' covers everything till ' + sd(p.end) + '.' : inr(b.balance - b.total) + ' will be left after these debits.') + '</div>' : '');
+      }
+      h += '</div>';
+    });
+    var cs = activeCards();
+    if (cs.length) {
+      h += '<div class="card"><h2>Which bank pays each card?</h2><p class="note" style="margin-top:0">Card bills are added to that bank\'s list above.</p><table class="bp-t">' + cs.map(function (c) {
+        var pf = payFrom(c.ID);
+        return '<tr><td><b>' + esc(c.Name) + '</b><div class="note">due ' + ord(c.DueDay) + '</div></td><td class="r"><select class="in bp-sel" data-payfrom="' + c.ID + '"><option value="">Not set</option>' + names.map(function (n) { return '<option' + (n === pf ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></td></tr>';
+      }).join('') + '</table>' + (p.unassigned.length ? '<p class="note">Not in the plan yet: ' + p.unassigned.map(function (e) { return esc(e.card.Name) + ' ' + inr(e.amt) + ' (' + sd(e.date) + ')'; }).join(', ') + '</p>' : '') + '</div>';
+    }
+    return h;
+  }
+  EXTRA_VIEWS.banks = vBanks;
+  document.addEventListener('change', function (e) { var id = e.target.dataset && e.target.dataset.payfrom; if (id === undefined) return; save('AppSettings', { Key: 'PayFrom_' + id, Value: e.target.value }); });
+  window.bankPlanRows = function () { // short list for Home screens
+    var p = bankPlan(), rows = p.banks.filter(function (b) { return b.status !== 'none'; });
+    return rows.map(function (b) {
+      var st = b.status === 'add' ? '<b style="color:var(--critical)">Add ' + inr(b.firstShort.short) + ' by ' + sd(b.firstShort.date) + '</b>' : b.status === 'enter' ? '<span style="color:#b57e00">Enter balance</span>' : '<b style="color:var(--good)">Covered</b>';
+      return { bank: b.bank, count: b.ev.length, total: b.total, st: st, first: b.ev[0] ? sd(b.ev[0].date) : '' };
+    });
+  };
+})();
+
+</script>
+<script>
 /* ================= iOS app layer: navigation, Home, quick add, passcode, gestures ================= */
 (function () {
-  var TITLES = { home: 'Overview', exp: 'Spending', cards: 'Credit Cards', more: 'More', dash: 'Month details', plan: 'Income & Budget', loans: 'EMIs', funds: 'Savings', trend: 'Trends', set: 'Settings' };
-  var SUB = { dash: 1, plan: 1, loans: 1, funds: 1, trend: 1, set: 1 };
+  var TITLES = { banks: 'Bank planner', home: 'Overview', exp: 'Spending', cards: 'Credit Cards', more: 'More', dash: 'Month details', plan: 'Income & Budget', loans: 'EMIs', funds: 'Savings', trend: 'Trends', set: 'Settings' };
+  var SUB = { banks: 1, dash: 1, plan: 1, loans: 1, funds: 1, trend: 1, set: 1 };
   var COLORS = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)', 'var(--c6)', 'var(--c7)'];
   function ls(k, v) { try { if (arguments.length === 1) return localStorage.getItem(k); v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { return null; } }
   function fmtD(d) { var x = new Date(d + 'T00:00:00'); return x.getDate() + ' ' + MN[x.getMonth()].slice(0, 3); }
@@ -1612,9 +1793,48 @@ load();
   EXTRA_VIEWS.home = vHome; EXTRA_VIEWS.more = vMore; EXTRA_VIEWS.exp = vSpend; delete after.exp;
   TAB = 'home';
   var lastTab = null;
+  /* ---------- Phone notifications (OneSignal) ---------- */
+  var OS = { ready: false, err: '', loading: false, sdk: null };
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent), STANDALONE = window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  function osLoad() {
+    if (OS.loading || !D || !D.oneSignalAppId || (IOS && !STANDALONE)) return; OS.loading = true;
+    var base = location.pathname.replace(/[^\/]*$/, '');
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(function (O) {
+      return O.init({ appId: D.oneSignalAppId, serviceWorkerPath: base.slice(1) + 'sw.js', serviceWorkerParam: { scope: base }, autoResubscribe: true })
+        .then(function () { OS.ready = true; OS.sdk = O; if (O.Notifications.permission) O.login('owner'); if (TAB === 'more') render(); })
+        .catch(function (e) { OS.err = String(e && e.message || e); if (TAB === 'more') render(); });
+    });
+    var sc = document.createElement('script'); sc.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js'; sc.defer = true;
+    sc.onerror = function () { OS.err = 'Could not reach the notification service'; OS.loading = false; if (TAB === 'more') render(); };
+    document.head.appendChild(sc);
+  }
+  function osStatus() {
+    if (!D.oneSignalAppId) return ['Not set up', 'Add the OneSignal keys in Code.gs (email alerts still work)'];
+    if (IOS && !STANDALONE) return ['Home Screen only', 'Open Finance from the Home Screen icon to turn on'];
+    if (!('Notification' in window)) return ['Not supported', 'Update iOS to 16.4 or newer'];
+    if (OS.err) return ['Unavailable', OS.err];
+    if (!OS.ready) return ['Loading…', 'One moment'];
+    if (Notification.permission === 'denied') return ['Blocked', 'Allow in Settings → Notifications → Finance'];
+    return OS.sdk.Notifications.permission && OS.sdk.User.PushSubscription.optedIn ? ['On ✓', 'Alerts at 8 AM and 7 PM on this phone · tap to turn off'] : ['Off', 'Tap to turn on'];
+  }
+  function osToggle() {
+    var st = osStatus()[0];
+    if (!OS.ready) { toast(osStatus()[1]); return; }
+    var O = OS.sdk;
+    if (st.indexOf('On') === 0) { if (confirm('Turn off notifications on this phone?')) { O.User.PushSubscription.optOut().then(function () { toast('Notifications off'); render(); }); } return; }
+    O.Notifications.requestPermission()
+      .then(function () { return O.Notifications.permission ? O.User.PushSubscription.optIn() : null; })
+      .then(function () { if (O.Notifications.permission) return O.login('owner'); })
+      .then(function () { toast(O.Notifications.permission ? 'Notifications on ✓ Try "Send a test alert"' : 'Not allowed'); render(); })
+      .catch(function (e) { toast('Could not turn on: ' + (e && e.message || e)); });
+  }
   window.afterRender = function () {
+    osLoad();
     var active = SUB[TAB] ? 'more' : TAB;
     bar.querySelectorAll('button[data-go]').forEach(function (b) { b.classList.toggle('on', b.dataset.go === active); });
+    var hb = bar.querySelector('button[data-go="home"]'), na = window.appAlerts ? appAlerts().length : 0, bd = hb.querySelector('.tabbadge');
+    if (na) { if (!bd) { bd = document.createElement('span'); bd.className = 'tabbadge'; hb.style.position = 'relative'; hb.appendChild(bd); } bd.textContent = na; } else if (bd) bd.remove();
     var back = SUB[TAB] ? '<a class="back" data-go="more">‹ More</a>' : '';
     $('app').insertAdjacentHTML('afterbegin', '<div class="lt-wrap">' + back + '<div class="lt"><h1>' + esc(TITLES[TAB] || '') + '</h1></div></div>');
     document.querySelector('.monthnav').style.visibility = TAB === 'more' ? 'hidden' : '';
@@ -1627,7 +1847,7 @@ load();
   function vHome() {
     var s = summary(M), prev = summary(addM(M, -1)), bud = budgetFor(M), loans = s.loans;
     var inc = s.actual !== null ? s.actual : s.expected, emis = s.loanEmi + s.cardEmi;
-    var h = '<div class="hero"><div class="k">' + (s.future ? 'Projected for ' : 'Left in ') + esc(mLabel(M)) + '<span class="pill">' + (s.surplus < 0 ? 'Deficit' : 'Surplus') + '</span></div>' +
+    var h = (window.alertsHtml ? alertsHtml() : '') + '<div class="hero"><div class="k">' + (s.future ? 'Projected for ' : 'Left in ') + esc(mLabel(M)) + '<span class="pill">' + (s.surplus < 0 ? 'Deficit' : 'Surplus') + '</span></div>' +
       '<div class="big">' + inr(s.surplus) + '</div><div class="sub">Income − spent − ' + (countCardEmis() ? 'all EMIs' : 'loan EMIs') + (s.fromFunds ? ' · ' + inr(s.fromFunds) + ' taken from savings' : '') + '</div>' +
       '<div class="row3"><div><div class="l">Income</div><div class="v">' + inr(inc) + '</div></div><div><div class="l">Spent</div><div class="v">' + inr(s.spent) + '</div></div><div><div class="l">EMIs</div><div class="v">' + inr(emis) + '</div></div></div></div>';
 
@@ -1669,14 +1889,10 @@ load();
     // trend
     h += '<div class="sec">Last 6 months</div><div class="card"><div class="chart" id="chHome"></div></div>';
 
-    // bank funding
-    var banks = bankNeeds(M).filter(function (b) { return b.unpaid > 0; });
-    if (banks.length && M >= ym(new Date())) {
-      h += '<div class="sec">Keep in bank for EMIs</div><div class="list">' + banks.map(function (b) {
-        var st = b.short > 0 ? '<div class="b" style="color:var(--critical);font-weight:600">Add ' + inr(b.short) + '</div>' : b.balance === null ? '<div class="b">Balance not set</div>' : '<div class="b" style="color:var(--good);font-weight:600">Enough</div>';
-        return '<div class="li" data-go="dash"><div class="ic" style="background:var(--c3)">🏦</div><div class="tx"><div class="t1">' + esc(b.bank) + '</div><div class="t2">' + b.count + ' EMI' + (b.count > 1 ? 's' : '') + ' · first due ' + ord(b.first) + '</div></div><div class="rt"><div class="a">' + inr(b.unpaid) + '</div>' + st + '</div></div>';
-      }).join('') + '</div>';
-    }
+    // bank planner
+    var bpr = window.bankPlanRows ? bankPlanRows() : [];
+    if (bpr.length) h += '<div class="sec">Keep in each bank<a class="r" data-go="banks">Planner</a></div><div class="list">' + bpr.map(function (b) {
+      return '<div class="li" data-go="banks"><div class="ic" style="background:var(--c3)">🏦</div><div class="tx"><div class="t1">' + esc(b.bank) + '</div><div class="t2">' + b.count + ' debit' + (b.count > 1 ? 's' : '') + ' · from ' + b.first + ' · ' + inr(b.total) + '</div></div><div class="rt"><div class="b">' + b.st + '</div></div></div>'; }).join('') + '</div>';
     h += '<div class="sec"></div><div class="list"><div class="li noicon" data-go="dash"><div class="tx"><div class="t1">Full month details</div><div class="t2">Budgets, EMI ticks, savings cover</div></div><span class="chev">›</span></div></div>';
     return h;
   }
@@ -1734,7 +1950,7 @@ load();
 
   /* ---------- More ---------- */
   function vMore() {
-    var rows = [['dash', '📅', 'var(--c1)', 'Month details', 'Budgets, EMI ticks, bank funding'], ['plan', '💰', 'var(--c3)', 'Income & Budget', 'Salaries and monthly plan'], ['loans', '🏦', 'var(--c7)', 'EMIs', 'Loan, card and combined EMIs'],
+    var rows = [['dash', '📅', 'var(--c1)', 'Month details', 'Budgets, EMI ticks, bank funding'], ['plan', '💰', 'var(--c3)', 'Income & Budget', 'Salaries and monthly plan'], ['banks', '🏦', 'var(--c3)', 'Bank planner', 'What to keep in each bank, by date'], ['loans', '🏦', 'var(--c7)', 'EMIs', 'Loan, card and combined EMIs'],
       ['funds', '🪙', 'var(--c4)', 'Savings', 'Bonds, stocks, cash'], ['trend', '📈', 'var(--c2)', 'Trends', '12-month history'], ['set', '⚙️', 'var(--cOther)', 'Settings', 'People, banks, categories']];
     var h = '<div class="list">' + rows.map(function (r) { return '<div class="li" data-go="' + r[0] + '"><div class="ic" style="background:' + r[2] + '">' + r[1] + '</div><div class="tx"><div class="t1">' + r[3] + '</div><div class="t2">' + r[4] + '</div></div><span class="chev">›</span></div>'; }).join('') + '</div>';
     var pc = !!ls('ff_pc'), fid = !!ls('ff_fid');
@@ -1743,6 +1959,10 @@ load();
       (pc ? '<div class="li" data-sec="fid"><div class="ic" style="background:var(--c6)">🙂</div><div class="tx"><div class="t1">Unlock with Face ID</div><div class="t2">' + (fid ? 'On' : 'Off') + '</div></div><span class="chev">›</span></div>' +
             '<div class="li" data-sec="pcoff"><div class="ic" style="background:var(--cOther)">🚫</div><div class="tx"><div class="t1">Turn off passcode</div></div></div>' : '') +
       '<div class="li" data-sec="lock"><div class="ic" style="background:var(--critical)">🔒</div><div class="tx"><div class="t1">Log out of this phone</div><div class="t2">Needs your server PIN to open again</div></div></div></div>';
+    var ns = osStatus();
+    h += '<div class="sec">Notifications</div><div class="list">' +
+      '<div class="li" data-sec="notif"><div class="ic" style="background:var(--c2)">🔔</div><div class="tx"><div class="t1">Phone notifications · ' + ns[0] + '</div><div class="t2">' + esc(ns[1]) + '</div></div><span class="chev">›</span></div>' +
+      '<div class="li" data-sec="ntest"><div class="ic" style="background:var(--c1)">📨</div><div class="tx"><div class="t1">Send a test alert</div><div class="t2">Phone + email · EMIs, card bills, budget, monthly summary</div></div><span class="chev">›</span></div></div>';
     if (D.spreadsheetUrl) h += '<div class="sec">Data</div><div class="list"><a class="li" href="' + esc(D.spreadsheetUrl) + '" target="_blank" style="color:inherit;text-decoration:none"><div class="ic" style="background:var(--c3)">📄</div><div class="tx"><div class="t1">Open Google Sheet</div><div class="t2">All your data lives here</div></div><span class="chev">›</span></a></div>';
     return h + '<p class="note" style="text-align:center;margin-top:18px">Family Finance · your data stays in your Google Drive</p>';
   }
@@ -1752,6 +1972,8 @@ load();
     if (k === 'pcoff') { if (confirm('Turn off the app passcode?')) { ls('ff_pc', null); ls('ff_fid', null); render(); } }
     if (k === 'fid') { if (ls('ff_fid')) { ls('ff_fid', null); toast('Face ID unlock turned off'); render(); } else enrollFaceId(); }
     if (k === 'lock') window.ffLock();
+    if (k === 'notif') osToggle();
+    if (k === 'ntest') { toast('Sending…'); api('testAlert').then(function (r) { toast(String(r || 'Sent')); }, function () {}); }
   });
 
   /* ---------- Quick add ---------- */
